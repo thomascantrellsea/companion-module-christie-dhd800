@@ -1,0 +1,14 @@
+{
+  "name": "companion-module-christie-dhd800",
+  "version": "0.0.1",
+  "description": "Bitfocus Companion module for Christie DHD800 projector",
+  "main": "index.js",
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "@companion-module/base": "^3.0.0"
+  }
+}
