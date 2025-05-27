@@ -1,0 +1,10 @@
+{
+  "name": "Christie DHD800",
+  "version": "0.0.1",
+  "manufacturer": "Christie",
+  "product": "DHD800",
+  "shortname": "christie-dhd800",
+  "type": "instance",
+  "main": "index.js",
+  "keywords": ["companion", "projector", "christie"]
+}

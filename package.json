@@ -16,5 +16,9 @@
   },
   "scripts": {
     "test": "jest"
+  },
+  "companion": {
+    "type": "instance",
+    "name": "Christie DHD800"
   }
 }
