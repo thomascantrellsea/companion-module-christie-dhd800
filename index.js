@@ -1,4 +1,13 @@
-const { InstanceBase, Regex, runEntrypoint, TCPHelper } = require('@companion-module/base')
+let InstanceBase, Regex, runEntrypoint, TCPHelper
+try {
+  ;({ InstanceBase, Regex, runEntrypoint, TCPHelper } = require('@companion-module/base'))
+} catch (e) {
+  if (globalThis.companionBase) {
+    ;({ InstanceBase, Regex, runEntrypoint, TCPHelper } = globalThis.companionBase)
+  } else {
+    throw e
+  }
+}
 
 class ChristieDHD800Instance extends InstanceBase {
   constructor(internal) {
