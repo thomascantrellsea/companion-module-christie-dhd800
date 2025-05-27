@@ -1,0 +1,2 @@
+# Ignore the entire externals folder (and all its descendants)
+externals/**
