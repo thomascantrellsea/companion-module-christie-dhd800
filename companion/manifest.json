@@ -1,0 +1,27 @@
+{
+
+        "id": "christie-dhd800",
+        "name": "Christie DHD800",
+        "shortname": "christie-dhd800",
+	"description": "A short one line description of your module",
+        "version": "0.0.1",
+	"license": "MIT",
+	"repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
+	"bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
+	"maintainers": [
+		{
+			"name": "Your name",
+			"email": "Your email"
+		}
+	],
+	"runtime": {
+		"type": "node22",
+		"api": "nodejs-ipc",
+		"apiVersion": "0.0.0",
+		"entrypoint": "../index.js"
+	},
+	"legacyIds": [],
+        "manufacturer": "Christie",
+        "products": ["DHD800"],
+        "keywords": ["companion", "projector", "christie"]
+}
