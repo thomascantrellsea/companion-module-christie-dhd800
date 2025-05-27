@@ -6,7 +6,7 @@
   "author": "",
   "license": "MIT",
   "engines": {
-    "node": ">=16"
+    "node": ">=22.11 <23"
   },
   "dependencies": {
     "@companion-module/base": "^3.0.0"
@@ -26,5 +26,6 @@
     "type": "instance",
     "name": "Christie DHD800",
     "id": "christie-dhd800"
-  }
+  },
+  "packageManager": "yarn@4.9.1"
 }
