@@ -19,7 +19,8 @@
   "scripts": {
     "test": "jest",
     "format": "prettier -w .",
-    "package": "companion-module-build"
+    "package": "companion-module-build",
+    "test-companion": "node test-companion.js"
   },
   "companion": {
     "type": "instance",
