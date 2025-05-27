@@ -19,6 +19,7 @@
   },
   "companion": {
     "type": "instance",
-    "name": "Christie DHD800"
+    "name": "Christie DHD800",
+    "id": "christie-dhd800"
   }
 }
