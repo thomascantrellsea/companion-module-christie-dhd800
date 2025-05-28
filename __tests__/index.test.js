@@ -14,7 +14,12 @@ jest.mock("@companion-module/base", () => {
   class MockTCPHelper {
     constructor() {
       this.send = mockSend;
-      this.on = mockOn;
+      this.on = (evt, cb) => {
+        mockOn(evt, cb);
+        if (evt === "connect") {
+          this.connectCb = cb;
+        }
+      };
       this.destroy = jest.fn();
     }
     get isConnected() {
@@ -54,16 +59,22 @@ describe("ChristieDHD800Instance", () => {
 
   test("executeAction sends correct command", () => {
     const instance = new InstanceClass({});
-    instance.socket = { send: mockSend, isConnected: true };
+    instance.config = { host: "127.0.0.1", port: 10000, password: "" };
+
     instance.executeAction({ action: "power_on" });
+
+    const connectCall = mockOn.mock.calls.find((c) => c[0] === "connect");
+    expect(connectCall).toBeDefined();
+    connectCall[1]();
+
     expect(mockSend).toHaveBeenCalledWith("C00\r");
   });
 
-  test("sendCommand logs error when not connected", () => {
+  test("sendCommand logs error when host missing", () => {
     const instance = new InstanceClass({});
     const logSpy = jest.spyOn(instance, "log");
-    instance.socket = { send: mockSend, isConnected: false };
+    instance.config = {};
     instance.sendCommand("ABC");
-    expect(logSpy).toHaveBeenCalledWith("error", "Socket not connected");
+    expect(logSpy).toHaveBeenCalledWith("error", "Host not configured");
   });
 });

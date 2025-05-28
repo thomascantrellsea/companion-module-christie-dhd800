@@ -12,9 +12,8 @@ class ChristieDHD800Instance extends InstanceBase {
   }
 
   init(config) {
-    this.updateStatus("connecting");
+    this.updateStatus("ok");
     this.config = config;
-    this.initTCP();
     this.updateActions();
   }
 
@@ -35,23 +34,7 @@ class ChristieDHD800Instance extends InstanceBase {
       this.socket.destroy();
       delete this.socket;
     }
-
-    if (this.config.host) {
-      this.socket = new TCPHelper(this.config.host, this.config.port || 10000);
-
-      this.socket.on("status_change", (status, message) => {
-        this.updateStatus(status, message);
-      });
-
-      this.socket.on("connect", () => {
-        const pass = this.config.password || "";
-        this.socket.send(pass + "\r");
-      });
-
-      this.socket.on("error", (err) => {
-        this.log("error", `Network error: ${err.message}`);
-      });
-    }
+    this.updateStatus("ok");
   }
 
   getConfigFields() {
@@ -158,11 +141,33 @@ class ChristieDHD800Instance extends InstanceBase {
   }
 
   sendCommand(cmd) {
-    if (this.socket && this.socket.isConnected) {
-      this.socket.send(cmd + "\r");
-    } else {
-      this.log("error", "Socket not connected");
+    if (!this.config.host) {
+      this.log("error", "Host not configured");
+      return;
     }
+
+    if (this.socket) {
+      this.socket.destroy();
+      this.socket = undefined;
+    }
+
+    this.socket = new TCPHelper(this.config.host, this.config.port || 10000);
+
+    this.socket.on("status_change", (status, message) => {
+      this.updateStatus(status, message);
+    });
+
+    this.socket.on("error", (err) => {
+      this.log("error", `Network error: ${err.message}`);
+    });
+
+    this.socket.on("connect", () => {
+      const pass = this.config.password || "";
+      this.socket.send(pass + "\r");
+      this.socket.send(cmd + "\r");
+      this.socket.destroy();
+      this.socket = undefined;
+    });
   }
 }
 
