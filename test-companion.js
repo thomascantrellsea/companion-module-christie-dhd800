@@ -6,7 +6,7 @@
  *
  *  Steps performed:
  *  1. cd externals/companion
- *  2. Ensure symlink: module-local-dev/companion-module-christie-dhd800 → ../../..
+ *  2. Copy module files into module-local-dev/companion-module-christie-dhd800
  *  3. yarn install
  *  4. yarn dev:inner    (stream logs, watch for errors)
  *     • Terminates after 30 s with an aggressive kill strategy:
@@ -21,38 +21,42 @@ const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
 
-// ---------- helper: ensure symlink ----------
-async function ensureSymlink() {
-  const linkRel = path.join(
+// ---------- helper: copy module files ----------
+async function copyModuleFiles(repoRoot) {
+  const destDir = path.join(
     "module-local-dev",
     "companion-module-christie-dhd800",
   );
-  const linkTarget = path.join("..", "..", ".."); // ../../..
 
+  // Ensure destination directory exists
   try {
-    const stats = await fsPromises.lstat(linkRel);
-    if (!stats.isSymbolicLink()) {
-      throw new Error(`${linkRel} exists but is not a symlink`);
-    }
-    const currentTarget = await fsPromises.readlink(linkRel);
-    if (currentTarget !== linkTarget) {
-      console.log(
-        `Symlink points to "${currentTarget}" – recreating → "${linkTarget}"`,
-      );
-      await fsPromises.unlink(linkRel);
-      await fsPromises.symlink(linkTarget, linkRel);
-    } else {
-      console.log("✔︎ Symlink already correct");
+    const stats = await fsPromises.lstat(destDir);
+    if (!stats.isDirectory()) {
+      await fsPromises.rm(destDir, { recursive: true, force: true });
+      await fsPromises.mkdir(destDir, { recursive: true });
     }
   } catch (err) {
     if (err.code === "ENOENT") {
-      await fsPromises.mkdir(path.dirname(linkRel), { recursive: true });
-      await fsPromises.symlink(linkTarget, linkRel);
-      console.log(`✔︎ Symlink created ${linkRel} → ${linkTarget}`);
+      await fsPromises.mkdir(destDir, { recursive: true });
     } else {
       throw err;
     }
   }
+
+  const files = [
+    "main.js",
+    "yarn.lock",
+    "package.json",
+    path.join("companion", "manifest.json"),
+  ];
+
+  for (const rel of files) {
+    const src = path.join(repoRoot, rel);
+    const dest = path.join(destDir, path.basename(rel));
+    await fsPromises.copyFile(src, dest);
+  }
+
+  console.log(`✔︎ Files copied to ${destDir}`);
 }
 
 // ---------- helper: run sync command ----------
@@ -138,8 +142,8 @@ function runDev() {
   console.log("📂  Working directory →", process.cwd());
 
   try {
-    // 2. symlink
-    await ensureSymlink();
+    // 2. copy module files
+    await copyModuleFiles(repoRoot);
 
     // 3. yarn install
     console.log("\n📦  yarn install");
