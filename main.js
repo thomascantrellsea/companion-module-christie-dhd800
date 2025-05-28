@@ -83,14 +83,46 @@ class ChristieDHD800Instance extends InstanceBase {
 
   updateActions() {
     const actions = {
-      power_on: { name: "Power On", options: [] },
-      power_off: { name: "Power Off", options: [] },
-      input_1: { name: "Select Input 1", options: [] },
-      input_2: { name: "Select Input 2", options: [] },
-      input_3: { name: "Select Input 3", options: [] },
-      input_4: { name: "Select Input 4", options: [] },
-      menu_on: { name: "Menu On", options: [] },
-      menu_off: { name: "Menu Off", options: [] },
+      power_on: {
+        name: "Power On",
+        options: [],
+        callback: () => this.sendCommand("C00"),
+      },
+      power_off: {
+        name: "Power Off",
+        options: [],
+        callback: () => this.sendCommand("C01"),
+      },
+      input_1: {
+        name: "Select Input 1",
+        options: [],
+        callback: () => this.sendCommand("C05"),
+      },
+      input_2: {
+        name: "Select Input 2",
+        options: [],
+        callback: () => this.sendCommand("C06"),
+      },
+      input_3: {
+        name: "Select Input 3",
+        options: [],
+        callback: () => this.sendCommand("C07"),
+      },
+      input_4: {
+        name: "Select Input 4",
+        options: [],
+        callback: () => this.sendCommand("C08"),
+      },
+      menu_on: {
+        name: "Menu On",
+        options: [],
+        callback: () => this.sendCommand("C1C"),
+      },
+      menu_off: {
+        name: "Menu Off",
+        options: [],
+        callback: () => this.sendCommand("C1D"),
+      },
     };
 
     this.setActionDefinitions(actions);

@@ -48,6 +48,8 @@ describe("ChristieDHD800Instance", () => {
     expect(defs).toHaveProperty("power_off");
     expect(defs).toHaveProperty("input_1");
     expect(defs).toHaveProperty("menu_off");
+    // ensure callbacks are present
+    expect(typeof defs.power_on.callback).toBe("function");
   });
 
   test("executeAction sends correct command", () => {
