@@ -5,6 +5,9 @@ const {
   TCPHelper,
 } = require("@companion-module/base");
 
+// Toggle to enable verbose network debugging logs
+const NETWORK_DEBUG = false;
+
 class ChristieDHD800Instance extends InstanceBase {
   constructor(internal) {
     super(internal);
@@ -12,6 +15,9 @@ class ChristieDHD800Instance extends InstanceBase {
   }
 
   init(config) {
+    if (NETWORK_DEBUG) {
+      this.log("debug", "Initializing module");
+    }
     this.updateStatus("ok");
     this.config = config;
     this.updateActions();
@@ -19,20 +25,32 @@ class ChristieDHD800Instance extends InstanceBase {
 
   async destroy() {
     if (this.socket) {
+      if (NETWORK_DEBUG) {
+        this.log("debug", "Destroying active socket");
+      }
       this.socket.destroy();
       delete this.socket;
     }
   }
 
   async configUpdated(config) {
+    if (NETWORK_DEBUG) {
+      this.log("debug", "Configuration updated, reinitializing TCP");
+    }
     this.config = config;
     this.initTCP();
   }
 
   initTCP() {
     if (this.socket) {
+      if (NETWORK_DEBUG) {
+        this.log("debug", "initTCP called, cleaning up existing socket");
+      }
       this.socket.destroy();
       delete this.socket;
+    }
+    if (NETWORK_DEBUG) {
+      this.log("debug", "TCP state reset");
     }
     this.updateStatus("ok");
   }
@@ -141,31 +159,70 @@ class ChristieDHD800Instance extends InstanceBase {
   }
 
   sendCommand(cmd) {
+    if (NETWORK_DEBUG) {
+      this.log("debug", `sendCommand called with cmd='${cmd}'`);
+    }
     if (!this.config.host) {
       this.log("error", "Host not configured");
       return;
     }
 
     if (this.socket) {
+      if (NETWORK_DEBUG) {
+        this.log("debug", "Existing socket detected, destroying old connection");
+      }
       this.socket.destroy();
       this.socket = undefined;
     }
 
+    if (NETWORK_DEBUG) {
+      this.log(
+        "debug",
+        `Creating TCP connection to ${this.config.host}:${this.config.port || 10000}`
+      );
+    }
     this.socket = new TCPHelper(this.config.host, this.config.port || 10000);
 
     this.socket.on("status_change", (status, message) => {
+      if (NETWORK_DEBUG) {
+        this.log("debug", `Status changed: ${status} ${message}`);
+      }
       this.updateStatus(status, message);
     });
 
     this.socket.on("error", (err) => {
       this.log("error", `Network error: ${err.message}`);
+      if (NETWORK_DEBUG) {
+        this.log("debug", `Error details: ${JSON.stringify(err)}`);
+      }
+    });
+
+    this.socket.on("data", (data) => {
+      if (NETWORK_DEBUG) {
+        this.log("debug", `Received data: ${data}`);
+      }
     });
 
     this.socket.on("connect", () => {
+      if (NETWORK_DEBUG) {
+        this.log("debug", "Socket connected");
+      }
       const pass = this.config.password || "";
+      if (NETWORK_DEBUG) {
+        this.log("debug", `Sending password: '${pass}'`);
+      }
       this.socket.send(pass + "\r");
+      if (NETWORK_DEBUG) {
+        this.log("debug", `Sending command: '${cmd}'`);
+      }
       this.socket.send(cmd + "\r");
+      if (NETWORK_DEBUG) {
+        this.log("debug", "Command sent, destroying socket");
+      }
       this.socket.destroy();
+      if (NETWORK_DEBUG) {
+        this.log("debug", "Socket destroyed");
+      }
       this.socket = undefined;
     });
   }
