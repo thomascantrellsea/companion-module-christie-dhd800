@@ -197,9 +197,38 @@ class ChristieDHD800Instance extends InstanceBase {
       }
     });
 
+    let passwordSent = false;
+    let commandSent = false;
+    const pass = this.config.password || "";
+
     this.socket.on("data", (data) => {
+      const str = data.toString();
       if (NETWORK_DEBUG) {
-        this.log("debug", `Received data: ${data}`);
+        this.log("debug", `Received data: ${str}`);
+      }
+
+      if (!passwordSent && /PASSWORD:/i.test(str)) {
+        if (NETWORK_DEBUG) {
+          this.log("debug", `Sending password: '${pass}'`);
+        }
+        this.socket.send(pass + "\r");
+        passwordSent = true;
+      } else if (passwordSent && !commandSent && /HELLO/i.test(str)) {
+        if (NETWORK_DEBUG) {
+          this.log("debug", `Sending command: '${cmd}'`);
+        }
+        this.socket.send(cmd + "\r");
+        commandSent = true;
+        setTimeout(() => {
+          if (NETWORK_DEBUG) {
+            this.log("debug", "Command sent, destroying socket");
+          }
+          this.socket.destroy();
+          if (NETWORK_DEBUG) {
+            this.log("debug", "Socket destroyed");
+          }
+          this.socket = undefined;
+        }, 1000);
       }
     });
 
@@ -207,23 +236,7 @@ class ChristieDHD800Instance extends InstanceBase {
       if (NETWORK_DEBUG) {
         this.log("debug", "Socket connected");
       }
-      const pass = this.config.password || "";
-      if (NETWORK_DEBUG) {
-        this.log("debug", `Sending password: '${pass}'`);
-      }
-      this.socket.send(pass + "\r");
-      if (NETWORK_DEBUG) {
-        this.log("debug", `Sending command: '${cmd}'`);
-      }
-      this.socket.send(cmd + "\r");
-      if (NETWORK_DEBUG) {
-        this.log("debug", "Command sent, destroying socket");
-      }
-      this.socket.destroy();
-      if (NETWORK_DEBUG) {
-        this.log("debug", "Socket destroyed");
-      }
-      this.socket = undefined;
+      // Wait for PASSWORD: prompt before sending anything
     });
   }
 }

@@ -5,6 +5,10 @@ This module provides basic control over a Christie DHD800 projector using Bitfoc
 It connects to the projector via Telnet on port `10000` and sends simple commands for
 power, input selection and menu control.
 
+The module now waits for the projector's `PASSWORD:` and `Hello` prompts before
+sending commands. After issuing a command, it keeps the connection open for
+around one second to ensure the projector processes the message.
+
 ## Configuration
 
 - **Projector IP** – IP address of the projector.

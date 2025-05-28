@@ -1,5 +1,6 @@
 const mockSend = jest.fn();
 const mockOn = jest.fn();
+const mockDestroy = jest.fn();
 let InstanceClass;
 
 jest.mock("@companion-module/base", () => {
@@ -18,9 +19,11 @@ jest.mock("@companion-module/base", () => {
         mockOn(evt, cb);
         if (evt === "connect") {
           this.connectCb = cb;
+        } else if (evt === "data") {
+          this.dataCb = cb;
         }
       };
-      this.destroy = jest.fn();
+      this.destroy = mockDestroy;
     }
     get isConnected() {
       return true;
@@ -57,17 +60,32 @@ describe("ChristieDHD800Instance", () => {
     expect(typeof defs.power_on.callback).toBe("function");
   });
 
-  test("executeAction sends correct command", () => {
+  test("executeAction waits for prompts before sending command", () => {
+    jest.useFakeTimers();
     const instance = new InstanceClass({});
     instance.config = { host: "127.0.0.1", port: 10000, password: "" };
 
     instance.executeAction({ action: "power_on" });
 
     const connectCall = mockOn.mock.calls.find((c) => c[0] === "connect");
+    const dataCall = mockOn.mock.calls.find((c) => c[0] === "data");
     expect(connectCall).toBeDefined();
+    expect(dataCall).toBeDefined();
+
     connectCall[1]();
 
+    expect(mockSend).not.toHaveBeenCalled();
+
+    dataCall[1]("PASSWORD:");
+    expect(mockSend).toHaveBeenCalledWith("\r");
+    mockSend.mockClear();
+
+    dataCall[1]("Hello");
     expect(mockSend).toHaveBeenCalledWith("C00\r");
+
+    jest.runAllTimers();
+    expect(mockDestroy).toHaveBeenCalled();
+    jest.useRealTimers();
   });
 
   test("sendCommand logs error when host missing", () => {
