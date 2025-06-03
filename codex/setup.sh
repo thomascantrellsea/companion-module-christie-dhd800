@@ -25,4 +25,8 @@ mkdir -p .cache/node
 cp ../packages/node/*.tar.gz ./.cache/node
 popd
 
+# Install libusb-1.0.so.0
+apt-get update 
+env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libusb-1.0-0
+
 echo "Setup complete."
