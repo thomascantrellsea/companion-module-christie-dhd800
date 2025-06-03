@@ -169,7 +169,10 @@ class ChristieDHD800Instance extends InstanceBase {
 
     if (this.socket) {
       if (NETWORK_DEBUG) {
-        this.log("debug", "Existing socket detected, destroying old connection");
+        this.log(
+          "debug",
+          "Existing socket detected, destroying old connection",
+        );
       }
       this.socket.destroy();
       this.socket = undefined;
@@ -178,7 +181,7 @@ class ChristieDHD800Instance extends InstanceBase {
     if (NETWORK_DEBUG) {
       this.log(
         "debug",
-        `Creating TCP connection to ${this.config.host}:${this.config.port || 10000}`
+        `Creating TCP connection to ${this.config.host}:${this.config.port || 10000}`,
       );
     }
     this.socket = new TCPHelper(this.config.host, this.config.port || 10000);

@@ -39,7 +39,7 @@ jest.mock("@companion-module/base", () => {
   };
 });
 
-require("../index.js");
+require("../main.js");
 
 describe("ChristieDHD800Instance", () => {
   beforeEach(() => {
