@@ -158,7 +158,7 @@ function runDev(messages) {
 
 async function runHttpTests(messages) {
   const http = require("http");
-  const { io } = require("socket.io-client");
+  const { io } = require("./externals/companion/node_modules/socket.io-client");
 
   // basic connectivity check
   await new Promise((resolve, reject) => {
