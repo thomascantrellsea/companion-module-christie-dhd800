@@ -10,6 +10,7 @@ Useful links:
 ## Development notes
 
 - Run `yarn format` before committing to ensure Prettier formatting is applied.
+- Run `yarn test-companion` to verify Companion starts using the local externals.
 
 ## Important files
 
