@@ -22,6 +22,9 @@ const fsPromises = require("fs/promises");
 const path = require("path");
 const net = require("net");
 
+const keepRunning =
+  process.argv.includes("--keep-running") || process.env.KEEP_RUNNING === "1";
+
 // ---------- helper: start mock tcp server ----------
 function startMockServer() {
   const messages = [];
@@ -105,7 +108,7 @@ function killProcessTree(child) {
 }
 
 // ---------- helper: run yarn dev:inner with 120‑s watchdog ----------
-function runDev(messages) {
+function runDev(messages, keepRunning) {
   return new Promise((resolve, reject) => {
     const proc = spawn("yarn", ["dev:inner"], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -122,12 +125,24 @@ function runDev(messages) {
         serverReady = true;
         runHttpTests(messages)
           .then(() => {
-            killProcessTree(proc);
+            if (!keepRunning) {
+              killProcessTree(proc);
+            } else {
+              console.log(
+                "Tests passed. Companion still running for debugging",
+              );
+            }
           })
           .catch((err) => {
             console.error("HTTP tests failed", err);
             success = false;
-            killProcessTree(proc);
+            if (!keepRunning) {
+              killProcessTree(proc);
+            } else {
+              console.log(
+                "Tests failed. Companion left running for post-mortem debugging",
+              );
+            }
           });
       }
 
@@ -143,13 +158,15 @@ function runDev(messages) {
     proc.stdout.on("data", watch);
     proc.stderr.on("data", watch);
 
-    const timer = setTimeout(() => {
-      console.log("\n⏰  120 s elapsed – terminating dev process");
-      killProcessTree(proc);
-    }, 120_000);
+    const timer = !keepRunning
+      ? setTimeout(() => {
+          console.log("\n⏰  120 s elapsed – terminating dev process");
+          killProcessTree(proc);
+        }, 120_000)
+      : null;
 
     proc.on("close", () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       if (success) resolve();
       else reject(new Error("christie-dhd800 module did not start cleanly"));
     });
@@ -247,7 +264,7 @@ async function runHttpTests(messages) {
 
     const before = messages.length;
     await httpPost(`/api/location/1/1/1/press`);
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 2000));
     const msg = messages.slice(before).join("\n");
     if (!msg.includes(cmd)) {
       throw new Error(`Expected command ${cmd} not seen for ${actionId}`);
@@ -281,7 +298,12 @@ async function runHttpTests(messages) {
 
     // 4. yarn dev:inner with watchdog
     console.log("\n🚀  yarn dev");
-    await runDev(messages);
+    if (keepRunning) {
+      console.log(
+        "ℹ️  keep-running mode enabled – Companion will stay running on failure",
+      );
+    }
+    await runDev(messages, keepRunning);
 
     mockServer.close();
     console.log("\n✅ christie-dhd800 restart appears successful");
