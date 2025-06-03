@@ -24,13 +24,16 @@ const net = require("net");
 
 // ---------- helper: start mock tcp server ----------
 function startMockServer() {
+  const messages = [];
   return new Promise((resolve) => {
     const server = net.createServer((socket) => {
       socket.on("data", (d) => {
-        console.log("mock server received:", d.toString().trim());
+        const msg = d.toString().trim();
+        messages.push(msg);
+        console.log("mock server received:", msg);
       });
     });
-    server.listen(10000, "127.0.0.1", () => resolve(server));
+    server.listen(10000, "127.0.0.1", () => resolve({ server, messages }));
   });
 }
 
@@ -102,7 +105,7 @@ function killProcessTree(child) {
 }
 
 // ---------- helper: run yarn dev:inner with 30‑s watchdog ----------
-function runDev() {
+function runDev(messages) {
   return new Promise((resolve, reject) => {
     const proc = spawn("yarn", ["dev:inner"], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -117,7 +120,7 @@ function runDev() {
 
       if (/new url:/i.test(text) && !serverReady) {
         serverReady = true;
-        runHttpTests()
+        runHttpTests(messages)
           .then(() => {
             killProcessTree(proc);
           })
@@ -153,9 +156,12 @@ function runDev() {
   });
 }
 
-async function runHttpTests() {
+async function runHttpTests(messages) {
   const http = require("http");
-  return new Promise((resolve, reject) => {
+  const { io } = require("socket.io-client");
+
+  // basic connectivity check
+  await new Promise((resolve, reject) => {
     http
       .get("http://127.0.0.1:8000", (res) => {
         if (res.statusCode !== 200) {
@@ -167,6 +173,88 @@ async function runHttpTests() {
       })
       .on("error", reject);
   });
+
+  // helper to POST to companion
+  async function httpPost(path) {
+    return new Promise((resolve, reject) => {
+      const req = http.request(
+        { method: "POST", host: "127.0.0.1", port: 8000, path },
+        (res) => {
+          res.resume();
+          res.on("end", resolve);
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+  }
+
+  const socket = io("http://127.0.0.1:8000", { transports: ["websocket"] });
+  await new Promise((resolve) => socket.on("connect", resolve));
+
+  function emitPromise(event, args) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timeout")), 5000);
+      socket.emit(event, args, (err, res) => {
+        clearTimeout(timer);
+        if (err) reject(new Error(err));
+        else resolve(res);
+      });
+    });
+  }
+
+  const connectionId = await emitPromise("connections:add", [
+    { type: "christie-dhd800", product: "DHD800" },
+    "autotest",
+    null,
+  ]);
+  await emitPromise("connections:set-label-and-config", [
+    connectionId,
+    "autotest",
+    { host: "127.0.0.1", port: 10000, password: "" },
+  ]);
+
+  const actions = {
+    power_on: "C00",
+    power_off: "C01",
+    input_1: "C05",
+    input_2: "C06",
+    input_3: "C07",
+    input_4: "C08",
+    menu_on: "C1C",
+    menu_off: "C1D",
+  };
+
+  const location = { pageNumber: 1, row: 1, column: 1 };
+
+  for (const [actionId, cmd] of Object.entries(actions)) {
+    await emitPromise("controls:reset", [location, "button"]);
+
+    const pages = await emitPromise("pages:subscribe", []);
+    const pageId = pages.order[0];
+    const controlId =
+      pages.pages[pageId]?.controls?.[location.row]?.[location.column];
+    if (!controlId) throw new Error("control not found");
+
+    await emitPromise("controls:entity:add", [
+      controlId,
+      { stepId: "0", setId: "down" },
+      null,
+      connectionId,
+      "action",
+      actionId,
+    ]);
+
+    const before = messages.length;
+    await httpPost(`/api/location/1/1/1/press`);
+    await new Promise((r) => setTimeout(r, 300));
+    const msg = messages.slice(before).join("\n");
+    if (!msg.includes(cmd)) {
+      throw new Error(`Expected command ${cmd} not seen for ${actionId}`);
+    }
+  }
+
+  socket.close();
 }
 
 // ---------- main ----------
@@ -182,7 +270,7 @@ async function runHttpTests() {
   console.log("📂  Working directory →", process.cwd());
 
   try {
-    const mockServer = await startMockServer();
+    const { server: mockServer, messages } = await startMockServer();
 
     // 2. copy module files
     await copyModuleFiles(repoRoot);
@@ -193,7 +281,7 @@ async function runHttpTests() {
 
     // 4. yarn dev:inner with watchdog
     console.log("\n🚀  yarn dev");
-    await runDev();
+    await runDev(messages);
 
     mockServer.close();
     console.log("\n✅ christie-dhd800 restart appears successful");
