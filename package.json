@@ -17,7 +17,7 @@
     "prettier": "^3.5.3"
   },
   "scripts": {
-    "test": "jest",
+    "test": "jest --testPathIgnorePatterns=/externals/",
     "format": "prettier -w .",
     "package": "companion-module-build",
     "test-companion": "node test-companion.js"
