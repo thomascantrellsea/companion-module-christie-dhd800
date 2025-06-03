@@ -31,6 +31,7 @@ function startMockServer() {
   const messages = [];
   return new Promise((resolve) => {
     const server = net.createServer((socket) => {
+      socket.write("PASSWORD:\rHELLO\r");
       socket.on("data", (d) => {
         const msg = d.toString().trim();
         messages.push(msg);
@@ -72,7 +73,8 @@ async function copyModuleFiles(repoRoot) {
 
   for (const rel of files) {
     const src = path.join(repoRoot, rel);
-    const dest = path.join(destDir, path.basename(rel));
+    const dest = path.join(destDir, rel);
+    await fsPromises.mkdir(path.dirname(dest), { recursive: true });
     await fsPromises.copyFile(src, dest);
   }
 
@@ -116,10 +118,10 @@ function runDev(messages, keepRunning) {
     );
     console.log("\uD83D\uDCC1  Using temp config dir", configDir);
 
-    const proc = spawn("yarn", ["dev:inner"], {
+    const proc = spawn("yarn", ["dev:inner", "--config-dir", configDir], {
       stdio: ["ignore", "pipe", "pipe"],
       detached: true,
-      env: { ...process.env, COMPANION_CONFIG_BASEDIR: configDir },
+      env: { ...process.env },
     });
     let success = true;
     let serverReady = false;
