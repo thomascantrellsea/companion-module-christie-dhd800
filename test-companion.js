@@ -20,6 +20,19 @@ const { spawnSync, spawn } = require("child_process");
 const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
+const net = require("net");
+
+// ---------- helper: start mock tcp server ----------
+function startMockServer() {
+  return new Promise((resolve) => {
+    const server = net.createServer((socket) => {
+      socket.on("data", (d) => {
+        console.log("mock server received:", d.toString().trim());
+      });
+    });
+    server.listen(10000, "127.0.0.1", () => resolve(server));
+  });
+}
 
 // ---------- helper: copy module files ----------
 async function copyModuleFiles(repoRoot) {
@@ -93,14 +106,28 @@ function runDev() {
   return new Promise((resolve, reject) => {
     const proc = spawn("yarn", ["dev:inner"], {
       stdio: ["ignore", "pipe", "pipe"],
-      detached: true, // own process group for clean kill
+      detached: true,
     });
     let success = true;
+    let serverReady = false;
 
     const watch = (data) => {
       const text = data.toString();
       process.stdout.write(text);
-      // Very simple heuristics for error lines – tweak as required
+
+      if (/new url:/i.test(text) && !serverReady) {
+        serverReady = true;
+        runHttpTests()
+          .then(() => {
+            killProcessTree(proc);
+          })
+          .catch((err) => {
+            console.error("HTTP tests failed", err);
+            success = false;
+            killProcessTree(proc);
+          });
+      }
+
       if (
         /Error:/i.test(text) ||
         /ERR_/i.test(text) ||
@@ -118,14 +145,27 @@ function runDev() {
       killProcessTree(proc);
     }, 30_000);
 
-    proc.on("close", (code) => {
+    proc.on("close", () => {
       clearTimeout(timer);
-      if (success) {
-        resolve();
-      } else {
-        reject(new Error("christie-dhd800 module did not start cleanly"));
-      }
+      if (success) resolve();
+      else reject(new Error("christie-dhd800 module did not start cleanly"));
     });
+  });
+}
+
+async function runHttpTests() {
+  const http = require("http");
+  return new Promise((resolve, reject) => {
+    http
+      .get("http://127.0.0.1:8000", (res) => {
+        if (res.statusCode !== 200) {
+          reject(new Error("unexpected http status " + res.statusCode));
+          return;
+        }
+        res.resume();
+        res.on("end", resolve);
+      })
+      .on("error", reject);
   });
 }
 
@@ -142,6 +182,8 @@ function runDev() {
   console.log("📂  Working directory →", process.cwd());
 
   try {
+    const mockServer = await startMockServer();
+
     // 2. copy module files
     await copyModuleFiles(repoRoot);
 
@@ -152,6 +194,8 @@ function runDev() {
     // 4. yarn dev:inner with watchdog
     console.log("\n🚀  yarn dev");
     await runDev();
+
+    mockServer.close();
     console.log("\n✅ christie-dhd800 restart appears successful");
     process.exit(0);
   } catch (err) {
