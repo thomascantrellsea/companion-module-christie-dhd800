@@ -107,7 +107,7 @@ function killProcessTree(child) {
   }, 2_000);
 }
 
-// ---------- helper: run yarn dev:inner with 120‑s watchdog ----------
+// ---------- helper: run yarn dev:inner with 5‑minute watchdog ----------
 function runDev(messages, keepRunning) {
   return new Promise((resolve, reject) => {
     const proc = spawn("yarn", ["dev:inner"], {
@@ -160,9 +160,10 @@ function runDev(messages, keepRunning) {
 
     const timer = !keepRunning
       ? setTimeout(() => {
-          console.log("\n⏰  120 s elapsed – terminating dev process");
+          console.log("\n⏰  5 minutes elapsed – terminating dev process");
+          success = false;
           killProcessTree(proc);
-        }, 120_000)
+        }, 300_000)
       : null;
 
     proc.on("close", () => {
