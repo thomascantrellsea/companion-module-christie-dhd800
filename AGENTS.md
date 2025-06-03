@@ -13,6 +13,9 @@ Useful links:
 - Run `yarn test` to execute unit tests.
 - Run `yarn test-companion` to verify Companion starts using the local externals.
 
+# yarn test-companion debugging
+If `yarn test-companion` fails, recommend re-running with "yarn test-companion --keep-running" and use curl commands to introspect http://127.0.0.1:8000
+
 ## Important files
 
 - `package.json` – defines Node dependencies, scripts and Companion metadata for the module.
