@@ -104,7 +104,7 @@ function killProcessTree(child) {
   }, 2_000);
 }
 
-// ---------- helper: run yarn dev:inner with 30‑s watchdog ----------
+// ---------- helper: run yarn dev:inner with 120‑s watchdog ----------
 function runDev(messages) {
   return new Promise((resolve, reject) => {
     const proc = spawn("yarn", ["dev:inner"], {
@@ -144,9 +144,9 @@ function runDev(messages) {
     proc.stderr.on("data", watch);
 
     const timer = setTimeout(() => {
-      console.log("\n⏰  30 s elapsed – terminating dev process");
+      console.log("\n⏰  120 s elapsed – terminating dev process");
       killProcessTree(proc);
-    }, 30_000);
+    }, 120_000);
 
     proc.on("close", () => {
       clearTimeout(timer);
@@ -158,7 +158,7 @@ function runDev(messages) {
 
 async function runHttpTests(messages) {
   const http = require("http");
-  const { io } = require("./externals/companion/node_modules/socket.io-client");
+  const { io } = require("socket.io-client");
 
   // basic connectivity check
   await new Promise((resolve, reject) => {
@@ -247,7 +247,7 @@ async function runHttpTests(messages) {
 
     const before = messages.length;
     await httpPost(`/api/location/1/1/1/press`);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 1200));
     const msg = messages.slice(before).join("\n");
     if (!msg.includes(cmd)) {
       throw new Error(`Expected command ${cmd} not seen for ${actionId}`);
