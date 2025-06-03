@@ -89,36 +89,36 @@ function killProcessTree(child) {
 }
 
 // ---------- helper: run yarn dev:inner with 30‑s watchdog ----------
-function runDev() {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("yarn", ["dev:inner"], {
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: true, // own process group for clean kill
-    });
-    let success = true;
+function startDev() {
+  const proc = spawn("yarn", ["dev:inner"], {
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true, // own process group for clean kill
+  });
+  let success = true;
 
-    const watch = (data) => {
-      const text = data.toString();
-      process.stdout.write(text);
-      // Very simple heuristics for error lines – tweak as required
-      if (
-        /Error:/i.test(text) ||
-        /ERR_/i.test(text) ||
-        /Access to this API has been restricted/i.test(text)
-      ) {
-        success = false;
-      }
-    };
+  const watch = (data) => {
+    const text = data.toString();
+    process.stdout.write(text);
+    // Very simple heuristics for error lines – tweak as required
+    if (
+      /Error:/i.test(text) ||
+      /ERR_/i.test(text) ||
+      /Access to this API has been restricted/i.test(text)
+    ) {
+      success = false;
+    }
+  };
 
-    proc.stdout.on("data", watch);
-    proc.stderr.on("data", watch);
+  proc.stdout.on("data", watch);
+  proc.stderr.on("data", watch);
 
-    const timer = setTimeout(() => {
-      console.log("\n⏰  30 s elapsed – terminating dev process");
-      killProcessTree(proc);
-    }, 30_000);
+  const timer = setTimeout(() => {
+    console.log("\n⏰  120 s elapsed – terminating dev process");
+    killProcessTree(proc);
+  }, 120_000);
 
-    proc.on("close", (code) => {
+  const done = new Promise((resolve, reject) => {
+    proc.on("close", () => {
       clearTimeout(timer);
       if (success) {
         resolve();
@@ -127,6 +127,35 @@ function runDev() {
       }
     });
   });
+
+  return { proc, done };
+}
+
+// ---------- helper: connect to companion and create a button ----------
+async function loginAndCreateButton() {
+  // Wait for the web server to be reachable
+  const baseUrl = "http://127.0.0.1:8000";
+  for (let i = 0; i < 90; i++) {
+    try {
+      const res = await fetch(baseUrl);
+      if (res.ok) {
+        console.log("✔︎ Connected to Companion web interface");
+        break;
+      }
+    } catch (_) {}
+    await new Promise((r) => setTimeout(r, 1000));
+    if (i === 89) throw new Error("Companion web interface not reachable");
+  }
+
+  // Attempt to update a button via HTTP API
+  const res = await fetch(
+    `${baseUrl}/api/location/1/1/1/style?text=Automated+Test`,
+    { method: "POST" },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to update button style: ${res.status}`);
+  }
+  console.log("✔︎ Button style updated via HTTP API");
 }
 
 // ---------- main ----------
@@ -151,7 +180,13 @@ function runDev() {
 
     // 4. yarn dev:inner with watchdog
     console.log("\n🚀  yarn dev");
-    await runDev();
+    const dev = startDev();
+    try {
+      await loginAndCreateButton();
+    } finally {
+      killProcessTree(dev.proc);
+      await dev.done;
+    }
     console.log("\n✅ christie-dhd800 restart appears successful");
     process.exit(0);
   } catch (err) {
