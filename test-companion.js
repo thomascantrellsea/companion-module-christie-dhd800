@@ -20,6 +20,7 @@ const { spawnSync, spawn } = require("child_process");
 const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
+const os = require("os");
 const net = require("net");
 
 const keepRunning =
@@ -110,9 +111,15 @@ function killProcessTree(child) {
 // ---------- helper: run yarn dev:inner with 5‑minute watchdog ----------
 function runDev(messages, keepRunning) {
   return new Promise((resolve, reject) => {
+    const configDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "companion-config-"),
+    );
+    console.log("\uD83D\uDCC1  Using temp config dir", configDir);
+
     const proc = spawn("yarn", ["dev:inner"], {
       stdio: ["ignore", "pipe", "pipe"],
       detached: true,
+      env: { ...process.env, COMPANION_CONFIG_BASEDIR: configDir },
     });
     let success = true;
     let serverReady = false;
@@ -168,6 +175,7 @@ function runDev(messages, keepRunning) {
 
     proc.on("close", () => {
       if (timer) clearTimeout(timer);
+      fs.rmSync(configDir, { recursive: true, force: true });
       if (success) resolve();
       else reject(new Error("christie-dhd800 module did not start cleanly"));
     });
