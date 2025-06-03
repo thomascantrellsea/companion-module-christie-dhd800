@@ -19,4 +19,10 @@ pushd externals/companion
 yarn install
 popd
 
+# Copy cached node files
+pushd externals/companion
+mkdir -p .cache/node
+cp ../packages/node/*.tar.gz ./.cache/node
+popd
+
 echo "Setup complete."
