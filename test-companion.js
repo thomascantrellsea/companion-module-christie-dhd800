@@ -31,11 +31,16 @@ function startMockServer() {
   const messages = [];
   return new Promise((resolve) => {
     const server = net.createServer((socket) => {
-      socket.write("PASSWORD:\rHELLO\r");
+      let passReceived = false;
+      socket.write("PASSWORD:\r");
       socket.on("data", (d) => {
         const msg = d.toString().trim();
         messages.push(msg);
         console.log("mock server received:", msg);
+        if (!passReceived) {
+          passReceived = true;
+          socket.write("HELLO\r");
+        }
       });
     });
     server.listen(10000, "127.0.0.1", () => resolve({ server, messages }));
