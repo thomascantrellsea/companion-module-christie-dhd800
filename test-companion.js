@@ -188,19 +188,28 @@ async function runHttpTests(messages) {
   const http = require("http");
   const { io } = require("socket.io-client");
 
-  // basic connectivity check
-  await new Promise((resolve, reject) => {
-    http
-      .get("http://127.0.0.1:8000", (res) => {
-        if (res.statusCode !== 200) {
-          reject(new Error("unexpected http status " + res.statusCode));
-          return;
-        }
-        res.resume();
-        res.on("end", resolve);
-      })
-      .on("error", reject);
-  });
+  // basic connectivity check with retries as the webui may still be starting
+  async function checkRoot() {
+    return new Promise((resolve, reject) => {
+      http
+        .get("http://127.0.0.1:8000", (res) => {
+          const { statusCode } = res;
+          res.resume();
+          res.on("end", () => resolve(statusCode));
+        })
+        .on("error", () => resolve(null));
+    });
+  }
+
+  let status = null;
+  for (let i = 0; i < 40; i++) {
+    status = await checkRoot();
+    if (status === 200) break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  if (status !== 200) {
+    throw new Error("unexpected http status " + status);
+  }
 
   // helper to POST to companion
   async function httpPost(path) {
@@ -242,6 +251,21 @@ async function runHttpTests(messages) {
     { host: "127.0.0.1", port: 10000, password: "" },
   ]);
 
+  // Wait for the module to publish its action definitions
+  let defs = null;
+  for (let i = 0; i < 200; i++) {
+    try {
+      defs = await emitPromise("entity-definitions:subscribe", ["action"]);
+    } catch (_) {
+      defs = null;
+    }
+    if (defs?.[connectionId]) break;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  if (!defs?.[connectionId]) {
+    throw new Error("action definitions failed to load");
+  }
+
   const actions = {
     power_on: "C00",
     power_off: "C01",
@@ -264,7 +288,7 @@ async function runHttpTests(messages) {
       pages.pages[pageId]?.controls?.[location.row]?.[location.column];
     if (!controlId) throw new Error("control not found");
 
-    await emitPromise("controls:entity:add", [
+    const added = await emitPromise("controls:entity:add", [
       controlId,
       { stepId: "0", setId: "down" },
       null,
@@ -272,6 +296,9 @@ async function runHttpTests(messages) {
       "action",
       actionId,
     ]);
+    if (!added) {
+      throw new Error(`failed to add action ${actionId}`);
+    }
 
     const before = messages.length;
     await httpPost(`/api/location/1/1/1/press`);
