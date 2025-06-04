@@ -71,6 +71,7 @@ describe("ChristieDHD800Instance additional tests", () => {
     instance.configUpdated({ host: "1.2.3.4" });
     expect(instance.config).toEqual({ host: "1.2.3.4" });
     expect(spy).toHaveBeenCalled();
+    instance.destroy();
   });
 
   test("destroy cleans up active socket", async () => {
