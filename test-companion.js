@@ -26,6 +26,14 @@ const net = require("net");
 const keepRunning =
   process.argv.includes("--keep-running") || process.env.KEEP_RUNNING === "1";
 
+let projectorIp = null;
+const ipIndex = process.argv.indexOf("--projector-ip");
+if (ipIndex !== -1 && process.argv[ipIndex + 1]) {
+  projectorIp = process.argv[ipIndex + 1];
+} else if (process.env.PROJECTOR_IP) {
+  projectorIp = process.env.PROJECTOR_IP;
+}
+
 let activeChild = null;
 
 function installCleanupHandlers() {
@@ -61,6 +69,23 @@ function startMockServer() {
           passReceived = true;
           socket.write("HELLO\r");
         }
+      });
+    });
+    server.listen(10000, "127.0.0.1", () => resolve({ server, messages }));
+  });
+}
+
+function startProxyServer(targetHost) {
+  const messages = [];
+  return new Promise((resolve) => {
+    const server = net.createServer((socket) => {
+      const target = net.connect(10000, targetHost);
+      socket.pipe(target);
+      target.pipe(socket);
+      socket.on("data", (d) => {
+        const msg = d.toString().trim();
+        messages.push(msg);
+        console.log("proxy forwarded:", msg);
       });
     });
     server.listen(10000, "127.0.0.1", () => resolve({ server, messages }));
@@ -353,7 +378,12 @@ async function runHttpTests(messages) {
   installCleanupHandlers();
 
   try {
-    const { server: mockServer, messages } = await startMockServer();
+    const { server: mockServer, messages } = projectorIp
+      ? await startProxyServer(projectorIp)
+      : await startMockServer();
+    if (projectorIp) {
+      console.log(`\n🔌 Using real projector at ${projectorIp}`);
+    }
 
     // 2. copy module files
     await copyModuleFiles(repoRoot);
