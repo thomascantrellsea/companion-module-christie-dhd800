@@ -1,0 +1,13 @@
+# Yarn v4 Plug'n'Play files
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+
+# Node modules (not used with PnP but ignore just in case)
+node_modules/
+
+# IDE files
+.DS_Store
