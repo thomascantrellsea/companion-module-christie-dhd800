@@ -24,3 +24,13 @@ The following actions are available:
 - Menu On / Off
 
 Refer to the projector manual for further details.
+
+## Integration Tests
+
+Run `yarn test` for unit tests. To verify Companion can load the module, run `yarn test-companion`. You can target a real projector by supplying its IP address:
+
+```bash
+yarn test-companion --projector-ip <PROJECTOR_IP>
+```
+
+Without the flag, the tests use a mock TCP server.
