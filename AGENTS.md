@@ -22,3 +22,9 @@ If `yarn test-companion` fails, recommend re-running with "yarn test-companion -
 - `package.json` – defines Node dependencies, scripts and Companion metadata for the module.
 - `companion/manifest.json` – Companion manifest describing the module and pointing to the entry file.
 - `main.js` – module implementation loaded by Companion when the module starts.
+
+## Relation to Companion
+
+externals/companion is an external to https://github.com/bitfocus/companion.git, which is the parent
+which runs this module and is used for integration testing. Code under externals/companion cannot 
+be changed.
