@@ -26,6 +26,16 @@ const net = require("net");
 const keepRunning =
   process.argv.includes("--keep-running") || process.env.KEEP_RUNNING === "1";
 
+let projectorHost = null;
+const ipIdx = process.argv.indexOf("--projector-ip");
+if (ipIdx !== -1) {
+  projectorHost = process.argv[ipIdx + 1];
+  if (!projectorHost || projectorHost.startsWith("--")) {
+    console.error("--projector-ip requires an IP address argument");
+    process.exit(1);
+  }
+}
+
 // ---------- helper: start mock tcp server ----------
 function startMockServer() {
   const messages = [];
@@ -116,7 +126,7 @@ function killProcessTree(child) {
 }
 
 // ---------- helper: run yarn dev:inner with 5‑minute watchdog ----------
-function runDev(messages, keepRunning) {
+function runDev(messages, keepRunning, host) {
   return new Promise((resolve, reject) => {
     const configDir = fs.mkdtempSync(
       path.join(os.tmpdir(), "companion-config-"),
@@ -137,7 +147,7 @@ function runDev(messages, keepRunning) {
 
       if (/new url:/i.test(text) && !serverReady) {
         serverReady = true;
-        runHttpTests(messages)
+        runHttpTests(messages, host)
           .then(() => {
             if (!keepRunning) {
               killProcessTree(proc);
@@ -189,7 +199,7 @@ function runDev(messages, keepRunning) {
   });
 }
 
-async function runHttpTests(messages) {
+async function runHttpTests(messages, host) {
   const http = require("http");
   const { io } = require("socket.io-client");
 
@@ -253,7 +263,7 @@ async function runHttpTests(messages) {
   await emitPromise("connections:set-label-and-config", [
     connectionId,
     "autotest",
-    { host: "127.0.0.1", port: 10000, password: "" },
+    { host: host || "127.0.0.1", port: 10000, password: "" },
   ]);
 
   // Wait for the module to publish its action definitions
@@ -305,12 +315,14 @@ async function runHttpTests(messages) {
       throw new Error(`failed to add action ${actionId}`);
     }
 
-    const before = messages.length;
+    const before = messages ? messages.length : 0;
     await httpPost(`/api/location/1/1/1/press`);
     await new Promise((r) => setTimeout(r, 2000));
-    const msg = messages.slice(before).join("\n");
-    if (!msg.includes(cmd)) {
-      throw new Error(`Expected command ${cmd} not seen for ${actionId}`);
+    if (messages) {
+      const msg = messages.slice(before).join("\n");
+      if (!msg.includes(cmd)) {
+        throw new Error(`Expected command ${cmd} not seen for ${actionId}`);
+      }
     }
   }
 
@@ -330,7 +342,13 @@ async function runHttpTests(messages) {
   console.log("📂  Working directory →", process.cwd());
 
   try {
-    const { server: mockServer, messages } = await startMockServer();
+    let mockServer = null;
+    let messages = null;
+    if (!projectorHost) {
+      ({ server: mockServer, messages } = await startMockServer());
+    } else {
+      console.log(`\uD83D\uDD0C  Using projector at ${projectorHost}:10000`);
+    }
 
     // 2. copy module files
     await copyModuleFiles(repoRoot);
@@ -346,9 +364,11 @@ async function runHttpTests(messages) {
         "ℹ️  keep-running mode enabled – Companion will stay running on failure",
       );
     }
-    await runDev(messages, keepRunning);
+    await runDev(messages, keepRunning, projectorHost);
 
-    mockServer.close();
+    if (mockServer) {
+      mockServer.close();
+    }
     console.log("\n✅ christie-dhd800 restart appears successful");
     process.exit(0);
   } catch (err) {

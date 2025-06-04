@@ -15,6 +15,7 @@ Useful links:
   Note: test-companion can run for up to 5 minutes.
 
 # yarn test-companion debugging
+
 If `yarn test-companion` fails, recommend re-running with "yarn test-companion --keep-running" and use curl commands to introspect http://127.0.0.1:8000
 
 ## Important files
