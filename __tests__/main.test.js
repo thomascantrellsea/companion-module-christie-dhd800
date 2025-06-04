@@ -9,6 +9,10 @@ jest.mock("@companion-module/base", () => {
     setActionDefinitions(defs) {
       this.actionDefinitions = defs;
     }
+    setFeedbackDefinitions(defs) {
+      this.feedbackDefinitions = defs;
+    }
+    checkFeedbacksById() {}
     updateStatus() {}
     log() {}
   }
@@ -94,5 +98,20 @@ describe("ChristieDHD800Instance", () => {
     instance.config = {};
     instance.sendCommand("ABC");
     expect(logSpy).toHaveBeenCalledWith("error", "Host not configured");
+  });
+
+  test("sendCommand captures state", () => {
+    jest.useFakeTimers();
+    const instance = new InstanceClass({});
+    instance.config = { host: "127.0.0.1", port: 10000, password: "" };
+    const spy = jest.spyOn(instance, "checkFeedbacksById");
+    instance.sendCommand("C00");
+    let handlers = mockOn.mock.calls
+      .filter((c) => c[0] === "data")
+      .map((c) => c[1]);
+    const first = handlers[0];
+    expect(first).toBeDefined();
+    jest.runAllTimers();
+    jest.useRealTimers();
   });
 });

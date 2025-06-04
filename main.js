@@ -12,6 +12,9 @@ class ChristieDHD800Instance extends InstanceBase {
   constructor(internal) {
     super(internal);
     this.socket = undefined;
+    this.pollTimer = undefined;
+    this.powerState = undefined;
+    this.inputState = undefined;
   }
 
   init(config) {
@@ -21,9 +24,21 @@ class ChristieDHD800Instance extends InstanceBase {
     this.updateStatus("ok");
     this.config = config;
     this.updateActions();
+    this.updateFeedbacks();
+
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = undefined;
+    }
+    this.pollTimer = setInterval(() => this.queryState(), 30000);
+    this.queryState();
   }
 
   async destroy() {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = undefined;
+    }
     if (this.socket) {
       if (NETWORK_DEBUG) {
         this.log("debug", "Destroying active socket");
@@ -39,6 +54,11 @@ class ChristieDHD800Instance extends InstanceBase {
     }
     this.config = config;
     this.initTCP();
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+    }
+    this.pollTimer = setInterval(() => this.queryState(), 30000);
+    this.queryState();
   }
 
   initTCP() {
@@ -127,6 +147,54 @@ class ChristieDHD800Instance extends InstanceBase {
     };
 
     this.setActionDefinitions(actions);
+  }
+
+  updateFeedbacks() {
+    const feedbacks = {
+      power_state: {
+        type: "boolean",
+        name: "Power State",
+        options: [
+          {
+            type: "dropdown",
+            id: "state",
+            label: "State",
+            default: "00",
+            choices: [
+              { id: "00", label: "Power ON" },
+              { id: "80", label: "Standby" },
+              { id: "40", label: "Countdown" },
+              { id: "20", label: "Cooling" },
+              { id: "10", label: "Failure" },
+            ],
+          },
+        ],
+        defaultStyle: { bgcolor: "#00ff00" },
+        callback: (fb) => this.powerState === fb.options.state,
+      },
+      input_source: {
+        type: "boolean",
+        name: "Input Source",
+        options: [
+          {
+            type: "dropdown",
+            id: "slot",
+            label: "Input",
+            default: "1",
+            choices: [
+              { id: "1", label: "Input 1" },
+              { id: "2", label: "Input 2" },
+              { id: "3", label: "Input 3" },
+              { id: "4", label: "Input 4" },
+            ],
+          },
+        ],
+        defaultStyle: { bgcolor: "#0000ff" },
+        callback: (fb) => this.inputState === fb.options.slot,
+      },
+    };
+
+    this.setFeedbackDefinitions(feedbacks);
   }
 
   async executeAction(action) {
@@ -221,7 +289,22 @@ class ChristieDHD800Instance extends InstanceBase {
           this.log("debug", `Sending command: '${cmd}'`);
         }
         this.socket.send(cmd + "\r");
+        this.socket.send("CR0\r");
+        this.socket.send("CR1\r");
         commandSent = true;
+        const responses = [];
+        const parseResp = (s) => {
+          const m = s.match(/([0-9A-F]{2})/i);
+          if (m) {
+            responses.push(m[1]);
+            if (responses.length >= 2) {
+              this.powerState = responses[0];
+              this.inputState = responses[1];
+              this.checkFeedbacksById("power_state", "input_source");
+            }
+          }
+        };
+        this.socket.on("data", (d2) => parseResp(d2.toString()));
         setTimeout(() => {
           if (NETWORK_DEBUG) {
             this.log("debug", "Command sent, destroying socket");
@@ -241,6 +324,44 @@ class ChristieDHD800Instance extends InstanceBase {
       }
       // Wait for PASSWORD: prompt before sending anything
     });
+  }
+
+  queryState() {
+    if (!this.config?.host) return;
+
+    const sock = new TCPHelper(this.config.host, this.config.port || 10000, {
+      reconnect: false,
+    });
+
+    let passwordSent = false;
+    let helloReceived = false;
+    const pass = this.config.password || "";
+    const responses = [];
+
+    const processData = (str) => {
+      if (!passwordSent && /PASSWORD:/i.test(str)) {
+        sock.send(pass + "\r");
+        passwordSent = true;
+      } else if (passwordSent && !helloReceived && /HELLO/i.test(str)) {
+        helloReceived = true;
+        sock.send("CR0\r");
+        sock.send("CR1\r");
+      } else if (helloReceived) {
+        const match = str.match(/([0-9A-F]{2})/i);
+        if (match) {
+          responses.push(match[1]);
+          if (responses.length >= 2) {
+            this.powerState = responses[0];
+            this.inputState = responses[1];
+            this.checkFeedbacksById("power_state", "input_source");
+            sock.destroy();
+          }
+        }
+      }
+    };
+
+    sock.on("data", (d) => processData(d.toString()));
+    sock.on("error", () => {});
   }
 }
 

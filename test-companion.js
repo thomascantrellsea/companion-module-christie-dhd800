@@ -57,6 +57,8 @@ function installCleanupHandlers() {
 // ---------- helper: start mock tcp server ----------
 function startMockServer() {
   const messages = [];
+  let power = "80";
+  let input = "1";
   return new Promise((resolve) => {
     const server = net.createServer((socket) => {
       let passReceived = false;
@@ -68,10 +70,21 @@ function startMockServer() {
         if (!passReceived) {
           passReceived = true;
           socket.write("HELLO\r");
+        } else if (msg === "CR0") {
+          socket.write(power + "\r");
+        } else if (msg === "CR1") {
+          socket.write(input + "\r");
         }
       });
     });
-    server.listen(10000, "127.0.0.1", () => resolve({ server, messages }));
+    server.listen(10000, "127.0.0.1", () =>
+      resolve({
+        server,
+        messages,
+        setPower: (v) => (power = v),
+        setInput: (v) => (input = v),
+      }),
+    );
   });
 }
 
@@ -361,6 +374,64 @@ async function runHttpTests(messages) {
     }
   }
 
+  // feedback rendering test
+  await emitPromise("controls:reset", [location, "button"]);
+  const pages2 = await emitPromise("pages:subscribe", []);
+  const pageId2 = pages2.order[0];
+  const controlId2 =
+    pages2.pages[pageId2]?.controls?.[location.row]?.[location.column];
+  if (!controlId2) throw new Error("control not found");
+
+  await emitPromise("controls:set-style-fields", [
+    controlId2,
+    { bgcolor: "#ff0000" },
+  ]);
+
+  const fbAdded = await emitPromise("controls:entity:add", [
+    controlId2,
+    null,
+    null,
+    connectionId,
+    "feedback",
+    "power_state",
+  ]);
+  if (!fbAdded) throw new Error("failed to add feedback");
+  await emitPromise("controls:entity:set-option", [
+    controlId2,
+    null,
+    fbAdded,
+    "state",
+    "00",
+  ]);
+
+  let previewImage = null;
+  socket.on("preview:location:render", (loc, img) => {
+    if (
+      loc.pageNumber === location.pageNumber &&
+      loc.row === location.row &&
+      loc.column === location.column
+    ) {
+      previewImage = img;
+    }
+  });
+  const subId = "testsub";
+  const initPrev = await emitPromise("preview:location:subscribe", [
+    location,
+    subId,
+  ]);
+  previewImage = initPrev.image;
+
+  if (!previewImage) throw new Error("initial preview missing");
+  const initial = previewImage;
+
+  setPower("00");
+  await httpPost(`/api/location/1/1/1/press`);
+  await new Promise((r) => setTimeout(r, 2000));
+  if (previewImage === initial) {
+    throw new Error("preview did not change after state update");
+  }
+  await emitPromise("preview:location:unsubscribe", [location, subId]);
+
   socket.close();
 }
 
@@ -378,7 +449,11 @@ async function runHttpTests(messages) {
   installCleanupHandlers();
 
   try {
-    const { server: mockServer, messages } = projectorIp
+    const {
+      server: mockServer,
+      messages,
+      setPower,
+    } = projectorIp
       ? await startProxyServer(projectorIp)
       : await startMockServer();
     if (projectorIp) {
