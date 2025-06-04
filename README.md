@@ -24,3 +24,11 @@ The following actions are available:
 - Menu On / Off
 
 Refer to the projector manual for further details.
+
+## Testing with Companion
+
+Run `yarn test-companion` to launch a local Companion instance and verify the
+module loads correctly. By default it uses a mock projector. Pass
+`--projector-ip <ip>` (or set the `PROJECTOR_IP` environment variable) to proxy
+commands to a real projector at the given IP address instead of the mock
+server.
