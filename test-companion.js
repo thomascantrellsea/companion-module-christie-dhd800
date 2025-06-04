@@ -174,18 +174,34 @@ function killProcessTree(child) {
 }
 
 // ---------- helper: run yarn dev:inner with 5‑minute watchdog ----------
-function runDev(messages, keepRunning) {
-  return new Promise((resolve, reject) => {
-    const configDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "companion-config-"),
-    );
-    console.log("\uD83D\uDCC1  Using temp config dir", configDir);
+async function runDev(messages, keepRunning) {
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "companion-config-"));
+  console.log("\uD83D\uDCC1  Using temp config dir", configDir);
 
-    const proc = spawn("yarn", ["dev:inner", "--config-dir", configDir], {
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: true,
-      env: { ...process.env },
+  async function findFreePort() {
+    return new Promise((resolve, reject) => {
+      const srv = net.createServer();
+      srv.listen(0, "127.0.0.1", () => {
+        const { port } = srv.address();
+        srv.close(() => resolve(port));
+      });
+      srv.on("error", reject);
     });
+  }
+
+  const adminPort = keepRunning ? 8000 : await findFreePort();
+  const extraArgs = keepRunning ? [] : ["--admin-port", String(adminPort)];
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(
+      "yarn",
+      ["dev:inner", "--config-dir", configDir, ...extraArgs],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: true,
+        env: { ...process.env },
+      },
+    );
     activeChild = proc;
     let success = true;
     let serverReady = false;
@@ -196,7 +212,7 @@ function runDev(messages, keepRunning) {
 
       if (/new url:/i.test(text) && !serverReady) {
         serverReady = true;
-        runHttpTests(messages)
+        runHttpTests(messages, adminPort)
           .then(() => {
             if (!keepRunning) {
               killProcessTree(proc);
@@ -249,7 +265,7 @@ function runDev(messages, keepRunning) {
   });
 }
 
-async function runHttpTests(messages) {
+async function runHttpTests(messages, port) {
   const http = require("http");
   const { io } = require("socket.io-client");
 
@@ -257,7 +273,7 @@ async function runHttpTests(messages) {
   async function checkRoot() {
     return new Promise((resolve, reject) => {
       http
-        .get("http://127.0.0.1:8000", (res) => {
+        .get(`http://127.0.0.1:${port}`, (res) => {
           const { statusCode } = res;
           res.resume();
           res.on("end", () => resolve(statusCode));
@@ -280,7 +296,7 @@ async function runHttpTests(messages) {
   async function httpPost(path) {
     return new Promise((resolve, reject) => {
       const req = http.request(
-        { method: "POST", host: "127.0.0.1", port: 8000, path },
+        { method: "POST", host: "127.0.0.1", port, path },
         (res) => {
           res.resume();
           res.on("end", resolve);
@@ -291,7 +307,7 @@ async function runHttpTests(messages) {
     });
   }
 
-  const socket = io("http://127.0.0.1:8000", { transports: ["websocket"] });
+  const socket = io(`http://127.0.0.1:${port}`, { transports: ["websocket"] });
   await new Promise((resolve) => socket.on("connect", resolve));
 
   function emitPromise(event, args) {
