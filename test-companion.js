@@ -26,6 +26,26 @@ const net = require("net");
 const keepRunning =
   process.argv.includes("--keep-running") || process.env.KEEP_RUNNING === "1";
 
+let activeChild = null;
+
+function installCleanupHandlers() {
+  const cleanup = () => {
+    if (activeChild) {
+      console.log("\nCleaning up Companion process...");
+      killProcessTree(activeChild);
+    }
+  };
+
+  ["SIGINT", "SIGTERM"].forEach((sig) => {
+    process.on(sig, () => {
+      cleanup();
+      process.exit(1);
+    });
+  });
+
+  process.on("exit", cleanup);
+}
+
 // ---------- helper: start mock tcp server ----------
 function startMockServer() {
   const messages = [];
@@ -128,6 +148,7 @@ function runDev(messages, keepRunning) {
       detached: true,
       env: { ...process.env },
     });
+    activeChild = proc;
     let success = true;
     let serverReady = false;
 
@@ -183,6 +204,7 @@ function runDev(messages, keepRunning) {
     proc.on("close", () => {
       if (timer) clearTimeout(timer);
       fs.rmSync(configDir, { recursive: true, force: true });
+      activeChild = null;
       if (success) resolve();
       else reject(new Error("christie-dhd800 module did not start cleanly"));
     });
@@ -328,6 +350,7 @@ async function runHttpTests(messages) {
   }
   process.chdir(companionDir);
   console.log("📂  Working directory →", process.cwd());
+  installCleanupHandlers();
 
   try {
     const { server: mockServer, messages } = await startMockServer();
