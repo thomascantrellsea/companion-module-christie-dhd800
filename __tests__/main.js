@@ -9,6 +9,10 @@ jest.mock("@companion-module/base", () => {
     setActionDefinitions(defs) {
       this.actionDefinitions = defs;
     }
+    setFeedbackDefinitions(defs) {
+      this.feedbackDefinitions = defs;
+    }
+    checkFeedbacksById() {}
     updateStatus() {}
     log() {}
   }
@@ -75,5 +79,38 @@ describe("ChristieDHD800Instance additional tests", () => {
     await instance.destroy();
     expect(mockDestroy).toHaveBeenCalled();
     expect(instance.socket).toBeUndefined();
+  });
+
+  test("updateFeedbacks defines feedbacks", () => {
+    const instance = new InstanceClass({});
+    const spy = jest.spyOn(instance, "setFeedbackDefinitions");
+    instance.updateFeedbacks();
+    expect(spy).toHaveBeenCalled();
+    const defs = spy.mock.calls[0][0];
+    expect(defs).toHaveProperty("power_state");
+    expect(defs).toHaveProperty("input_source");
+  });
+
+  test("queryState sends status commands", () => {
+    const instance = new InstanceClass({});
+    instance.config = { host: "1.2.3.4", port: 10000, password: "" };
+    const spy = jest.spyOn(instance, "checkFeedbacksById");
+    instance.queryState();
+    let handlers = mockOn.mock.calls
+      .filter((c) => c[0] === "data")
+      .map((c) => c[1]);
+    const first = handlers[0];
+    first("PASSWORD:");
+    expect(mockSend).toHaveBeenCalledWith("\r");
+    mockSend.mockClear();
+    first("HELLO");
+    expect(mockSend).toHaveBeenCalledWith("CR0\r");
+    expect(mockSend).toHaveBeenCalledWith("CR1\r");
+    handlers = mockOn.mock.calls
+      .filter((c) => c[0] === "data")
+      .map((c) => c[1]);
+    const second = handlers[handlers.length - 1];
+    second("00");
+    second("1");
   });
 });
