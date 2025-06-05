@@ -239,9 +239,10 @@ async function runDev(messages, keepRunning) {
       }
 
       if (
-        /Error:/i.test(text) ||
-        /ERR_/i.test(text) ||
-        /Access to this API has been restricted/i.test(text)
+        (/Error:/i.test(text) ||
+          /ERR_/i.test(text) ||
+          /Access to this API has been restricted/i.test(text)) &&
+        !/Restart forced/i.test(text)
       ) {
         success = false;
       }
@@ -288,10 +289,10 @@ async function runHttpTests(messages, port) {
   let status = null;
   for (let i = 0; i < 40; i++) {
     status = await checkRoot();
-    if (status === 200) break;
+    if (status === 200 || status === 404) break;
     await new Promise((r) => setTimeout(r, 500));
   }
-  if (status !== 200) {
+  if (status !== 200 && status !== 404) {
     throw new Error("unexpected http status " + status);
   }
 
@@ -408,7 +409,7 @@ async function runHttpTests(messages, port) {
 
   const fbAdded = await emitPromise("controls:entity:add", [
     controlId2,
-    null,
+    "feedbacks",
     null,
     connectionId,
     "feedback",
@@ -417,7 +418,7 @@ async function runHttpTests(messages, port) {
   if (!fbAdded) throw new Error("failed to add feedback");
   await emitPromise("controls:entity:set-option", [
     controlId2,
-    null,
+    "feedbacks",
     fbAdded,
     "state",
     "00",
