@@ -466,7 +466,7 @@ async function runHttpTests(messages, port, setPower) {
 
   await emitPromise("controls:set-style-fields", [
     controlId2,
-    { bgcolor: "#ff0000" },
+    { bgcolor: 0xff0000 },
   ]);
 
   // Wait to ensure the style update has propagated before reading the preview
