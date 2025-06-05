@@ -407,7 +407,7 @@ async function runHttpTests(messages, port, setPower) {
       defs = null;
     }
     if (defs?.[connectionId]) break;
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 1000));
   }
   if (!defs?.[connectionId]) {
     throw new Error("action definitions failed to load");
