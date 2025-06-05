@@ -469,6 +469,9 @@ async function runHttpTests(messages, port, setPower) {
     { bgcolor: "#ff0000" },
   ]);
 
+  // Wait to ensure the style update has propagated before reading the preview
+  await new Promise((r) => setTimeout(r, 500));
+
   const fbAdded = await emitPromise("controls:entity:add", [
     controlId2,
     "feedbacks",
