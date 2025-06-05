@@ -208,6 +208,9 @@ async function runDev(messages, keepRunning) {
 
     const watch = (data) => {
       const text = data.toString();
+      if (/ModuleStoreService.*fetch failed/.test(text)) {
+        return;
+      }
       process.stdout.write(text);
 
       if (/new url:/i.test(text) && !serverReady) {
