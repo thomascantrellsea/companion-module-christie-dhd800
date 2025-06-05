@@ -15,6 +15,7 @@ Useful links:
   Note: test-companion can run for up to 5 minutes.
 
 # yarn test-companion debugging
+
 If `yarn test-companion` fails, recommend re-running with "yarn test-companion --keep-running" and use curl commands to introspect http://127.0.0.1:8000
 
 ## Important files
@@ -26,5 +27,5 @@ If `yarn test-companion` fails, recommend re-running with "yarn test-companion -
 ## Relation to Companion
 
 externals/companion is an external to https://github.com/bitfocus/companion.git, which is the parent
-which runs this module and is used for integration testing. Code under externals/companion cannot 
+which runs this module and is used for integration testing. Code under externals/companion cannot
 be changed.

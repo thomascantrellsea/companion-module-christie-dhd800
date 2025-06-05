@@ -105,6 +105,28 @@ function startProxyServer(targetHost) {
   });
 }
 
+function startDummyStoreServer() {
+  const http = require("http");
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      if (req.url === "/v1/companion/modules/connection") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ modules: [] }));
+      } else if (req.url.startsWith("/v1/companion/modules/connection/")) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "not found" }));
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      resolve({ server, port });
+    });
+  });
+}
+
 // ---------- helper: copy module files ----------
 async function copyModuleFiles(repoRoot) {
   const destDir = path.join(
@@ -174,7 +196,7 @@ function killProcessTree(child) {
 }
 
 // ---------- helper: run yarn dev:inner with 5‑minute watchdog ----------
-async function runDev(messages, keepRunning) {
+async function runDev(messages, setPower, keepRunning) {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "companion-config-"));
   console.log("\uD83D\uDCC1  Using temp config dir", configDir);
 
@@ -215,7 +237,7 @@ async function runDev(messages, keepRunning) {
 
       if (/new url:/i.test(text) && !serverReady) {
         serverReady = true;
-        runHttpTests(messages, adminPort)
+        runHttpTests(messages, adminPort, setPower)
           .then(() => {
             if (!keepRunning) {
               killProcessTree(proc);
@@ -269,7 +291,7 @@ async function runDev(messages, keepRunning) {
   });
 }
 
-async function runHttpTests(messages, port) {
+async function runHttpTests(messages, port, setPower) {
   const http = require("http");
   const { io } = require("socket.io-client");
 
@@ -483,6 +505,10 @@ async function runHttpTests(messages, port) {
     // 2. copy module files
     await copyModuleFiles(repoRoot);
 
+    const { server: storeServer, port: storePort } =
+      await startDummyStoreServer();
+    process.env.STAGING_MODULE_API = `http://127.0.0.1:${storePort}`;
+
     // 3. yarn install
     console.log("\n📦  yarn install");
     runSync("yarn", ["install"]);
@@ -494,7 +520,8 @@ async function runHttpTests(messages, port) {
         "ℹ️  keep-running mode enabled – Companion will stay running on failure",
       );
     }
-    await runDev(messages, keepRunning);
+    await runDev(messages, setPower, keepRunning);
+    storeServer.close();
 
     mockServer.close();
     console.log("\n✅ christie-dhd800 restart appears successful");
