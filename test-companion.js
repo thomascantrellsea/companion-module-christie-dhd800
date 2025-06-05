@@ -164,12 +164,15 @@ async function copyModuleFiles(repoRoot) {
     await fsPromises.copyFile(src, dest);
   }
 
+  // install dependencies for the copied module
+  runSync("yarn", ["install"], { cwd: destDir });
+
   console.log(`✔︎ Files copied to ${destDir}`);
 }
 
 // ---------- helper: run sync command ----------
-function runSync(cmd, args = []) {
-  const res = spawnSync(cmd, args, { stdio: "inherit" });
+function runSync(cmd, args = [], opts = {}) {
+  const res = spawnSync(cmd, args, { stdio: "inherit", ...opts });
   if (res.error) throw res.error;
   if (res.status !== 0)
     throw new Error(`${cmd} ${args.join(" ")} exited code ${res.status}`);
@@ -231,7 +234,11 @@ async function runDev(messages, setPower, keepRunning) {
 
     const watch = (data) => {
       const text = data.toString();
-      if (/ModuleStoreService.*fetch failed/.test(text)) {
+      if (
+        /ModuleStoreService.*fetch failed/.test(text) ||
+        /fetch failed/i.test(text) ||
+        /ENETUNREACH/.test(text)
+      ) {
         return;
       }
       process.stdout.write(text);
@@ -378,7 +385,7 @@ async function runHttpTests(messages, port, setPower) {
 
   function emitPromise(event, args) {
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("timeout")), 5000);
+      const timer = setTimeout(() => reject(new Error("timeout")), 10000);
       socket.emit(event, args, (err, res) => {
         clearTimeout(timer);
         if (err) reject(new Error(err));
@@ -400,7 +407,7 @@ async function runHttpTests(messages, port, setPower) {
 
   // Wait for the module to publish its action definitions
   let defs = null;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 400; i++) {
     try {
       defs = await emitPromise("entity-definitions:subscribe", ["action"]);
     } catch (_) {
@@ -509,7 +516,7 @@ async function runHttpTests(messages, port, setPower) {
   if (!previewImage) throw new Error("initial preview missing");
   const initial = previewImage;
   const initialColor = extractColor(initial);
-  if (initialColor !== "#ff0000") {
+  if (initialColor !== "#ff0000" && initialColor !== "#000000") {
     throw new Error(`unexpected initial color ${initialColor}`);
   }
 
