@@ -22,6 +22,7 @@ const fsPromises = require("fs/promises");
 const path = require("path");
 const os = require("os");
 const net = require("net");
+const zlib = require("zlib");
 
 const keepRunning =
   process.argv.includes("--keep-running") || process.env.KEEP_RUNNING === "1";
@@ -333,6 +334,45 @@ async function runHttpTests(messages, port, setPower) {
     });
   }
 
+  function extractColor(image) {
+    if (!image) return null;
+    const b64 = image.replace(/^data:image\/png;base64,/, "");
+    const buf = Buffer.from(b64, "base64");
+    const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    if (!buf.subarray(0, 8).equals(sig)) return null;
+    let pos = 8;
+    let width = 0;
+    let height = 0;
+    const idat = [];
+    while (pos < buf.length) {
+      const len = buf.readUInt32BE(pos);
+      const type = buf.subarray(pos + 4, pos + 8).toString("ascii");
+      pos += 8;
+      if (type === "IHDR") {
+        width = buf.readUInt32BE(pos);
+        height = buf.readUInt32BE(pos + 4);
+      } else if (type === "IDAT") {
+        idat.push(buf.subarray(pos, pos + len));
+      }
+      pos += len + 4; // skip chunk data + crc
+      if (type === "IEND") break;
+    }
+    if (width <= 0 || height <= 0 || idat.length === 0) return null;
+    const data = zlib.inflateSync(Buffer.concat(idat));
+    const bytesPerPixel = 4;
+    const stride = width * bytesPerPixel + 1;
+    const idx = 1 * stride + 1 * bytesPerPixel; // pixel (1,1) avoid border
+    const r = data[idx];
+    const g = data[idx + 1];
+    const b = data[idx + 2];
+    return (
+      "#" +
+      r.toString(16).padStart(2, "0") +
+      g.toString(16).padStart(2, "0") +
+      b.toString(16).padStart(2, "0")
+    );
+  }
+
   const socket = io(`http://127.0.0.1:${port}`, { transports: ["websocket"] });
   await new Promise((resolve) => socket.on("connect", resolve));
 
@@ -465,12 +505,20 @@ async function runHttpTests(messages, port, setPower) {
 
   if (!previewImage) throw new Error("initial preview missing");
   const initial = previewImage;
+  const initialColor = extractColor(initial);
+  if (initialColor !== "#ff0000") {
+    throw new Error(`unexpected initial color ${initialColor}`);
+  }
 
   setPower("00");
   await httpPost(`/api/location/1/1/1/press`);
   await new Promise((r) => setTimeout(r, 2000));
   if (previewImage === initial) {
     throw new Error("preview did not change after state update");
+  }
+  const newColor = extractColor(previewImage);
+  if (newColor !== "#00ff00") {
+    throw new Error(`unexpected updated color ${newColor}`);
   }
   await emitPromise("preview:location:unsubscribe", [location, subId]);
 
