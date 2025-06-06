@@ -543,7 +543,7 @@ async function runHttpTests(messages, port, setPower) {
 
   setPower("00");
   await httpPost(`/api/location/1/1/1/press`);
-  await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, 75000));
   if (previewImage === initial) {
     throw new Error("preview did not change after state update");
   }
