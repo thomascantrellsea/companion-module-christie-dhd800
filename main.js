@@ -15,6 +15,13 @@ class ChristieDHD800Instance extends InstanceBase {
     this.pollTimer = undefined;
     this.powerState = undefined;
     this.inputState = undefined;
+    this.POWER_STATE_LABELS = {
+      "00": "Power ON",
+      80: "Standby",
+      40: "Countdown",
+      20: "Cooling",
+      10: "Failure",
+    };
   }
 
   requestState(socket, onFinish) {
@@ -42,6 +49,11 @@ class ChristieDHD800Instance extends InstanceBase {
           }
           this.powerState = responses[0];
           this.inputState = responses[1];
+          this.setVariableValues({
+            power_state:
+              this.POWER_STATE_LABELS[this.powerState] || this.powerState,
+            input_source: parseInt(this.inputState, 10),
+          });
           this.checkFeedbacksById("power_state", "input_source");
           if (onFinish) onFinish();
         }
@@ -57,6 +69,10 @@ class ChristieDHD800Instance extends InstanceBase {
     }
     this.updateStatus("ok");
     this.config = config;
+    this.setVariableDefinitions([
+      { variableId: "power_state", name: "Power State" },
+      { variableId: "input_source", name: "Input Source" },
+    ]);
     this.updateActions();
     this.updateFeedbacks();
 
@@ -87,6 +103,10 @@ class ChristieDHD800Instance extends InstanceBase {
       this.log("debug", "Configuration updated, reinitializing TCP");
     }
     this.config = config;
+    this.setVariableDefinitions([
+      { variableId: "power_state", name: "Power State" },
+      { variableId: "input_source", name: "Input Source" },
+    ]);
     this.initTCP();
     if (this.pollTimer) {
       clearInterval(this.pollTimer);

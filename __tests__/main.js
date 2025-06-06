@@ -1,6 +1,8 @@
 const mockSend = jest.fn();
 const mockOn = jest.fn();
 const mockDestroy = jest.fn();
+const mockSetVariableDefinitions = jest.fn();
+const mockSetVariableValues = jest.fn();
 let InstanceClass;
 
 jest.mock("@companion-module/base", () => {
@@ -11,6 +13,12 @@ jest.mock("@companion-module/base", () => {
     }
     setFeedbackDefinitions(defs) {
       this.feedbackDefinitions = defs;
+    }
+    setVariableDefinitions(defs) {
+      mockSetVariableDefinitions(defs);
+    }
+    setVariableValues(vals) {
+      mockSetVariableValues(vals);
     }
     checkFeedbacksById() {}
     updateStatus() {}
@@ -50,6 +58,8 @@ describe("ChristieDHD800Instance additional tests", () => {
     mockSend.mockClear();
     mockOn.mockClear();
     mockDestroy.mockClear();
+    mockSetVariableDefinitions.mockClear();
+    mockSetVariableValues.mockClear();
   });
 
   test("getConfigFields returns expected fields", () => {
@@ -113,5 +123,18 @@ describe("ChristieDHD800Instance additional tests", () => {
     second("00");
     expect(mockSend).toHaveBeenCalledWith("CR1\r");
     second("3");
+    expect(mockSetVariableValues).toHaveBeenCalledWith({
+      power_state: "Power ON",
+      input_source: 3,
+    });
+  });
+
+  test("init defines variables", () => {
+    const instance = new InstanceClass({});
+    instance.init({});
+    expect(mockSetVariableDefinitions).toHaveBeenCalledWith([
+      { variableId: "power_state", name: "Power State" },
+      { variableId: "input_source", name: "Input Source" },
+    ]);
   });
 });
