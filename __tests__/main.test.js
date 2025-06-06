@@ -1,6 +1,8 @@
 const mockSend = jest.fn();
 const mockOn = jest.fn();
 const mockDestroy = jest.fn();
+const mockSetVariableDefinitions = jest.fn();
+const mockSetVariableValues = jest.fn();
 let InstanceClass;
 
 jest.mock("@companion-module/base", () => {
@@ -11,6 +13,12 @@ jest.mock("@companion-module/base", () => {
     }
     setFeedbackDefinitions(defs) {
       this.feedbackDefinitions = defs;
+    }
+    setVariableDefinitions(defs) {
+      mockSetVariableDefinitions(defs);
+    }
+    setVariableValues(vals) {
+      mockSetVariableValues(vals);
     }
     checkFeedbacksById() {}
     updateStatus() {}
@@ -48,6 +56,8 @@ require("../main.js");
 describe("ChristieDHD800Instance", () => {
   beforeEach(() => {
     mockSend.mockClear();
+    mockSetVariableDefinitions.mockClear();
+    mockSetVariableValues.mockClear();
   });
 
   test("updateActions defines expected actions", () => {
@@ -113,5 +123,24 @@ describe("ChristieDHD800Instance", () => {
     expect(first).toBeDefined();
     jest.runAllTimers();
     jest.useRealTimers();
+  });
+
+  test("requestState sets variables", () => {
+    const instance = new InstanceClass({});
+    let dataHandler;
+    const socket = {
+      send: jest.fn(),
+      on: jest.fn((evt, cb) => {
+        if (evt === "data") dataHandler = cb;
+      }),
+    };
+    instance.requestState(socket);
+    dataHandler("00");
+    expect(socket.send).toHaveBeenCalledWith("CR1\r");
+    dataHandler("3");
+    expect(mockSetVariableValues).toHaveBeenCalledWith({
+      power_state: "Power ON",
+      input_source: 3,
+    });
   });
 });
