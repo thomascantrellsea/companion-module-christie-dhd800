@@ -64,17 +64,25 @@ function startMockServer() {
     const server = net.createServer((socket) => {
       let passReceived = false;
       socket.write("PASSWORD:\r");
+      let buffer = "";
       socket.on("data", (d) => {
-        const msg = d.toString().trim();
-        messages.push(msg);
-        console.log("mock server received:", msg);
-        if (!passReceived) {
-          passReceived = true;
-          socket.write("HELLO\r");
-        } else if (msg === "CR0") {
-          socket.write(power + "\r");
-        } else if (msg === "CR1") {
-          socket.write(input + "\r");
+        buffer += d.toString();
+        const parts = buffer.split("\r");
+        buffer = parts.pop();
+        for (const line of parts) {
+          const msg = line.trim();
+          if (msg) {
+            messages.push(msg);
+            console.log("mock server received:", msg);
+          }
+          if (!passReceived) {
+            passReceived = true;
+            socket.write("HELLO\r");
+          } else if (msg === "CR0") {
+            setImmediate(() => socket.write(power + "\r"));
+          } else if (msg === "CR1") {
+            setImmediate(() => socket.write(input + "\r"));
+          }
         }
       });
     });
@@ -96,10 +104,17 @@ function startProxyServer(targetHost) {
       const target = net.connect(10000, targetHost);
       socket.pipe(target);
       target.pipe(socket);
+      let buffer = "";
       socket.on("data", (d) => {
-        const msg = d.toString().trim();
-        messages.push(msg);
-        console.log("proxy forwarded:", msg);
+        buffer += d.toString();
+        const parts = buffer.split("\r");
+        buffer = parts.pop();
+        for (const line of parts) {
+          const msg = line.trim();
+          if (!msg) continue;
+          messages.push(msg);
+          console.log("proxy forwarded:", msg);
+        }
       });
     });
     server.listen(10000, "127.0.0.1", () => resolve({ server, messages }));
