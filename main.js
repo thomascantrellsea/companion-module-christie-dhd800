@@ -297,6 +297,12 @@ class ChristieDHD800Instance extends InstanceBase {
           const m = s.match(/([0-9A-F]{2})/i);
           if (m) {
             responses.push(m[1]);
+            if (NETWORK_DEBUG) {
+              this.log(
+                "debug",
+                `Status response ${m[1]} (all: ${responses.join(",")})`,
+              );
+            }
             if (responses.length >= 2) {
               this.powerState = responses[0];
               this.inputState = responses[1];
@@ -350,6 +356,12 @@ class ChristieDHD800Instance extends InstanceBase {
         const match = str.match(/([0-9A-F]{2})/i);
         if (match) {
           responses.push(match[1]);
+          if (NETWORK_DEBUG) {
+            this.log(
+              "debug",
+              `Status response ${match[1]} (all: ${responses.join(",")})`,
+            );
+          }
           if (responses.length >= 2) {
             this.powerState = responses[0];
             this.inputState = responses[1];
