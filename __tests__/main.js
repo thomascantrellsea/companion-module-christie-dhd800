@@ -136,6 +136,7 @@ describe("ChristieDHD800Instance additional tests", () => {
       { variableId: "power_state", name: "Power State" },
       { variableId: "input_source", name: "Input Source" },
     ]);
+    instance.destroy();
   });
 
   test("requestState triggers feedback check", () => {
