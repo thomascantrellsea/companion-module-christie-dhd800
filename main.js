@@ -344,7 +344,9 @@ class ChristieDHD800Instance extends InstanceBase {
         }
         this.socket.send(cmd + "\r");
         commandSent = true;
-        this.requestState(this.socket);
+        setTimeout(() => {
+          this.requestState(this.socket);
+        }, 200);
         setTimeout(() => {
           if (NETWORK_DEBUG) {
             this.log("debug", "Command sent, destroying socket");
