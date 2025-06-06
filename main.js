@@ -33,7 +33,7 @@ class ChristieDHD800Instance extends InstanceBase {
         }
         if (step === 0) {
           step = 1;
-          socket.send("CR2\r");
+          socket.send("CR1\r");
         } else {
           if (typeof socket.removeListener === "function") {
             socket.removeListener("data", parse);
@@ -48,7 +48,7 @@ class ChristieDHD800Instance extends InstanceBase {
       }
     };
     socket.on("data", (d) => parse(d.toString()));
-    socket.send("CR1\r");
+    socket.send("CR0\r");
   }
 
   init(config) {
