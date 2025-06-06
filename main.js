@@ -17,6 +17,40 @@ class ChristieDHD800Instance extends InstanceBase {
     this.inputState = undefined;
   }
 
+  requestState(socket, onFinish) {
+    let step = 0;
+    const responses = [];
+    const parse = (str) => {
+      const match =
+        step === 0 ? str.match(/([0-9A-F]{2})/i) : str.match(/([0-9A-F])/i);
+      if (match) {
+        responses.push(match[1]);
+        if (NETWORK_DEBUG) {
+          this.log(
+            "debug",
+            `Status response ${match[1]} (all: ${responses.join(",")})`,
+          );
+        }
+        if (step === 0) {
+          step = 1;
+          socket.send("CR2\r");
+        } else {
+          if (typeof socket.removeListener === "function") {
+            socket.removeListener("data", parse);
+          } else if (typeof socket.off === "function") {
+            socket.off("data", parse);
+          }
+          this.powerState = responses[0];
+          this.inputState = responses[1];
+          this.checkFeedbacksById("power_state", "input_source");
+          if (onFinish) onFinish();
+        }
+      }
+    };
+    socket.on("data", (d) => parse(d.toString()));
+    socket.send("CR1\r");
+  }
+
   init(config) {
     if (NETWORK_DEBUG) {
       this.log("debug", "Initializing module");
@@ -289,28 +323,8 @@ class ChristieDHD800Instance extends InstanceBase {
           this.log("debug", `Sending command: '${cmd}'`);
         }
         this.socket.send(cmd + "\r");
-        this.socket.send("CR0\r");
-        this.socket.send("CR1\r");
         commandSent = true;
-        const responses = [];
-        const parseResp = (s) => {
-          const m = s.match(/([0-9A-F]{2})/i);
-          if (m) {
-            responses.push(m[1]);
-            if (NETWORK_DEBUG) {
-              this.log(
-                "debug",
-                `Status response ${m[1]} (all: ${responses.join(",")})`,
-              );
-            }
-            if (responses.length >= 2) {
-              this.powerState = responses[0];
-              this.inputState = responses[1];
-              this.checkFeedbacksById("power_state", "input_source");
-            }
-          }
-        };
-        this.socket.on("data", (d2) => parseResp(d2.toString()));
+        this.requestState(this.socket);
         setTimeout(() => {
           if (NETWORK_DEBUG) {
             this.log("debug", "Command sent, destroying socket");
@@ -342,7 +356,6 @@ class ChristieDHD800Instance extends InstanceBase {
     let passwordSent = false;
     let helloReceived = false;
     const pass = this.config.password || "";
-    const responses = [];
 
     const processData = (str) => {
       if (!passwordSent && /PASSWORD:/i.test(str)) {
@@ -350,25 +363,9 @@ class ChristieDHD800Instance extends InstanceBase {
         passwordSent = true;
       } else if (passwordSent && !helloReceived && /HELLO/i.test(str)) {
         helloReceived = true;
-        sock.send("CR0\r");
-        sock.send("CR1\r");
+        this.requestState(sock, () => sock.destroy());
       } else if (helloReceived) {
-        const match = str.match(/([0-9A-F]{2})/i);
-        if (match) {
-          responses.push(match[1]);
-          if (NETWORK_DEBUG) {
-            this.log(
-              "debug",
-              `Status response ${match[1]} (all: ${responses.join(",")})`,
-            );
-          }
-          if (responses.length >= 2) {
-            this.powerState = responses[0];
-            this.inputState = responses[1];
-            this.checkFeedbacksById("power_state", "input_source");
-            sock.destroy();
-          }
-        }
+        // waiting for state responses handled in requestState
       }
     };
 
