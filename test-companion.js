@@ -79,9 +79,15 @@ function startMockServer() {
             passReceived = true;
             socket.write("HELLO\r");
           } else if (msg === "CR0") {
-            setImmediate(() => socket.write(power + "\r"));
+            setImmediate(() => {
+              console.log("mock server responded:", power);
+              socket.write(power + "\r");
+            });
           } else if (msg === "CR1") {
-            setImmediate(() => socket.write(input + "\r"));
+            setImmediate(() => {
+              console.log("mock server responded:", input);
+              socket.write(input + "\r");
+            });
           }
         }
       });
