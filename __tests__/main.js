@@ -137,4 +137,20 @@ describe("ChristieDHD800Instance additional tests", () => {
       { variableId: "input_source", name: "Input Source" },
     ]);
   });
+
+  test("requestState triggers feedback check", () => {
+    const instance = new InstanceClass({});
+    const spy = jest.spyOn(instance, "checkFeedbacksById");
+    let dataHandler;
+    const socket = {
+      send: jest.fn(),
+      on: jest.fn((evt, cb) => {
+        if (evt === "data") dataHandler = cb;
+      }),
+    };
+    instance.requestState(socket);
+    dataHandler("00");
+    dataHandler("3");
+    expect(spy).toHaveBeenCalledWith("power_state", "input_source");
+  });
 });
