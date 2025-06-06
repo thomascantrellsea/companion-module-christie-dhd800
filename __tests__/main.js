@@ -105,13 +105,13 @@ describe("ChristieDHD800Instance additional tests", () => {
     expect(mockSend).toHaveBeenCalledWith("\r");
     mockSend.mockClear();
     first("HELLO");
-    expect(mockSend).toHaveBeenCalledWith("CR1\r");
+    expect(mockSend).toHaveBeenCalledWith("CR0\r");
     handlers = mockOn.mock.calls
       .filter((c) => c[0] === "data")
       .map((c) => c[1]);
     const second = handlers[handlers.length - 1];
     second("00");
-    expect(mockSend).toHaveBeenCalledWith("CR2\r");
+    expect(mockSend).toHaveBeenCalledWith("CR1\r");
     second("3");
   });
 });
