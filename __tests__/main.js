@@ -44,6 +44,7 @@ jest.mock("@companion-module/base", () => {
   return {
     InstanceBase: MockInstanceBase,
     Regex: { HOSTNAME: /.+/, PORT: /^\d+$/ },
+    combineRgb: (r, g, b) => (r << 16) | (g << 8) | b,
     TCPHelper: MockTCPHelper,
     runEntrypoint: jest.fn((cls) => {
       InstanceClass = cls;
