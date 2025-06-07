@@ -389,7 +389,9 @@ async function runHttpTests(messages, port, setPower) {
     const data = zlib.inflateSync(Buffer.concat(idat));
     const bytesPerPixel = 4;
     const stride = width * bytesPerPixel + 1;
-    const idx = 1 * stride + 1 * bytesPerPixel; // pixel (1,1) avoid border
+    const x = Math.floor(width / 2);
+    const y = Math.floor(height / 2);
+    const idx = y * stride + 1 + x * bytesPerPixel; // center pixel
     const r = data[idx];
     const g = data[idx + 1];
     const b = data[idx + 2];
