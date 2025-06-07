@@ -24,6 +24,9 @@ const os = require("os");
 const net = require("net");
 const zlib = require("zlib");
 
+const savePreview =
+  process.argv.includes("--save-preview") || process.env.SAVE_PREVIEW === "1";
+
 const keepRunning =
   process.argv.includes("--keep-running") || process.env.KEEP_RUNNING === "1";
 
@@ -403,15 +406,6 @@ async function runHttpTests(messages, port, setPower) {
     );
   }
 
-  async function getButtonColor(controlId) {
-    const res = await emitPromise("controls:subscribe", [controlId]);
-    await emitPromise("controls:unsubscribe", [controlId]);
-    const val = res?.config?.style?.bgcolor;
-    return typeof val === "number"
-      ? `#${val.toString(16).padStart(6, "0")}`
-      : null;
-  }
-
   const socket = io(`http://127.0.0.1:${port}`, { transports: ["websocket"] });
   await new Promise((resolve) => socket.on("connect", resolve));
 
@@ -508,7 +502,7 @@ async function runHttpTests(messages, port, setPower) {
     { bgcolor: 0xff0000 },
   ]);
 
-  // Wait to ensure the style update has propagated before querying
+  // Wait to ensure the style update has propagated before reading the preview
   await new Promise((r) => setTimeout(r, 500));
 
   const fbAdded = await emitPromise("controls:entity:add", [
@@ -528,7 +522,27 @@ async function runHttpTests(messages, port, setPower) {
     "00",
   ]);
 
-  const initialColor = await getButtonColor(controlId2);
+  let previewImage = null;
+  socket.on("preview:location:render", (loc, img) => {
+    if (
+      loc.pageNumber === location.pageNumber &&
+      loc.row === location.row &&
+      loc.column === location.column
+    ) {
+      previewImage = img;
+    }
+  });
+  const subId = "testsub";
+  const initPrev = await emitPromise("preview:location:subscribe", [
+    location,
+    subId,
+  ]);
+  previewImage = initPrev.image;
+
+  if (!previewImage) throw new Error("initial preview missing");
+  maybeSavePreview("preview_initial.png", previewImage);
+  const initial = previewImage;
+  const initialColor = extractColor(initial);
   if (initialColor !== "#ff0000" && initialColor !== "#000000") {
     throw new Error(`unexpected initial color ${initialColor}`);
   }
@@ -536,12 +550,23 @@ async function runHttpTests(messages, port, setPower) {
   setPower("00");
   await httpPost(`/api/location/1/1/1/press`);
   await new Promise((r) => setTimeout(r, 75000));
-  const newColor = await getButtonColor(controlId2);
+  if (previewImage === initial) {
+    throw new Error("preview did not change after state update");
+  }
+  maybeSavePreview("preview_updated.png", previewImage);
+  const newColor = extractColor(previewImage);
   if (newColor !== "#00ff00") {
     throw new Error(`unexpected updated color ${newColor}`);
   }
+  await emitPromise("preview:location:unsubscribe", [location, subId]);
 
   socket.close();
+}
+
+function maybeSavePreview(name, image) {
+  if (!savePreview || !image) return;
+  const b64 = image.replace(/^data:image\/png;base64,/, "");
+  fs.writeFileSync(name, Buffer.from(b64, "base64"));
 }
 
 // ---------- main ----------
