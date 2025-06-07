@@ -3,6 +3,7 @@ const {
   Regex,
   runEntrypoint,
   TCPHelper,
+  combineRgb,
 } = require("@companion-module/base");
 
 // Toggle to enable verbose network debugging logs
@@ -223,7 +224,7 @@ class ChristieDHD800Instance extends InstanceBase {
             ],
           },
         ],
-        defaultStyle: { bgcolor: "#00ff00" },
+        defaultStyle: { bgcolor: combineRgb(0, 255, 0) },
         callback: (fb) => this.powerState === fb.options.state,
       },
       input_source: {
@@ -243,7 +244,7 @@ class ChristieDHD800Instance extends InstanceBase {
             ],
           },
         ],
-        defaultStyle: { bgcolor: "#0000ff" },
+        defaultStyle: { bgcolor: combineRgb(0, 0, 255) },
         callback: (fb) => this.inputState === fb.options.slot,
       },
     };
