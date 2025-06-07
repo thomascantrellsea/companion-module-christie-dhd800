@@ -508,7 +508,7 @@ async function runHttpTests(messages, port, setPower) {
 
   setPower("00");
   await httpPost(`/api/location/1/1/1/press`);
-  await new Promise((r) => setTimeout(r, 75000));
+  await new Promise((r) => setTimeout(r, 45000));
   if (previewImage === initial) {
     throw new Error("preview did not change after state update");
   }
@@ -575,7 +575,7 @@ function maybeSavePreview(name, image) {
     storeServer.close();
 
     mockServer.close();
-    console.log("\n✅ christie-dhd800 restart appears successful");
+    console.log("\n✅ christie-dhd800 integration tests successful");
     process.exit(0);
   } catch (err) {
     console.error("\n❌", err.message || err);
