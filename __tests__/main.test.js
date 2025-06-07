@@ -20,6 +20,7 @@ jest.mock("@companion-module/base", () => {
     setVariableValues(vals) {
       mockSetVariableValues(vals);
     }
+    checkFeedbacks() {}
     checkFeedbacksById() {}
     updateStatus() {}
     log() {}
@@ -115,7 +116,7 @@ describe("ChristieDHD800Instance", () => {
     jest.useFakeTimers();
     const instance = new InstanceClass({});
     instance.config = { host: "127.0.0.1", port: 10000, password: "" };
-    const spy = jest.spyOn(instance, "checkFeedbacksById");
+    const spy = jest.spyOn(instance, "checkFeedbacks");
     instance.sendCommand("C00");
     let handlers = mockOn.mock.calls
       .filter((c) => c[0] === "data")
@@ -147,7 +148,7 @@ describe("ChristieDHD800Instance", () => {
 
   test("requestState triggers feedback check", () => {
     const instance = new InstanceClass({});
-    const spy = jest.spyOn(instance, "checkFeedbacksById");
+    const spy = jest.spyOn(instance, "checkFeedbacks");
     let dataHandler;
     const socket = {
       send: jest.fn(),
@@ -158,6 +159,6 @@ describe("ChristieDHD800Instance", () => {
     instance.requestState(socket);
     dataHandler("00");
     dataHandler("3");
-    expect(spy).toHaveBeenCalledWith("power_state", "input_source");
+    expect(spy).toHaveBeenCalled();
   });
 });

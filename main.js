@@ -55,7 +55,7 @@ class ChristieDHD800Instance extends InstanceBase {
               this.POWER_STATE_LABELS[this.powerState] || this.powerState,
             input_source: parseInt(this.inputState, 10),
           });
-          this.checkFeedbacksById("power_state", "input_source");
+          this.checkFeedbacks();
           if (onFinish) onFinish();
         }
       }
