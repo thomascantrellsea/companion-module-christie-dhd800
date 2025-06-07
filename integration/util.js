@@ -1,3 +1,4 @@
+const fs = require("fs");
 const zlib = require("zlib");
 
 function extractColor(image) {
@@ -99,4 +100,10 @@ function extractColor(image) {
   );
 }
 
-module.exports = { extractColor };
+function maybeSavePreview(name, image, savePreview) {
+  if (!savePreview || !image) return;
+  const b64 = image.replace(/^data:image\/png;base64,/, "");
+  fs.writeFileSync(name, Buffer.from(b64, "base64"));
+}
+
+module.exports = { extractColor, maybeSavePreview };
