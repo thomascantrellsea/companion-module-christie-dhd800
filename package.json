@@ -21,7 +21,7 @@
     "test": "jest --testPathIgnorePatterns=/externals/",
     "format": "prettier -w .",
     "package": "companion-module-build",
-    "test-companion": "node test-companion.js"
+    "test-companion": "node integration/test-companion.js"
   },
   "companion": {
     "type": "instance",
