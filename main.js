@@ -169,6 +169,11 @@ class ChristieDHD800Instance extends InstanceBase {
         options: [],
         callback: () => this.sendCommand("C01"),
       },
+      power_toggle: {
+        name: "Power Toggle",
+        options: [],
+        callback: () => this.togglePower(),
+      },
       input_1: {
         name: "Select Input 1",
         options: [],
@@ -260,6 +265,9 @@ class ChristieDHD800Instance extends InstanceBase {
       case "power_off":
         this.sendCommand("C01");
         break;
+      case "power_toggle":
+        this.togglePower();
+        break;
       case "input_1":
         this.sendCommand("C05");
         break;
@@ -279,6 +287,46 @@ class ChristieDHD800Instance extends InstanceBase {
         this.sendCommand("C1D");
         break;
     }
+  }
+
+  togglePower() {
+    if (!this.config?.host) {
+      this.log("error", "Host not configured");
+      return;
+    }
+
+    const sock = new TCPHelper(this.config.host, this.config.port || 10000, {
+      reconnect: false,
+    });
+
+    let passwordSent = false;
+    let helloReceived = false;
+    const pass = this.config.password || "";
+
+    const process = (str) => {
+      if (!passwordSent && /PASSWORD:/i.test(str)) {
+        sock.send(pass + "\r");
+        passwordSent = true;
+      } else if (passwordSent && !helloReceived && /HELLO/i.test(str)) {
+        helloReceived = true;
+        sock.send("CR1\r");
+      } else if (helloReceived) {
+        const match = str.match(/([0-9A-F]{2})/i);
+        if (match) {
+          const state = match[1];
+          sock.destroy();
+          this.powerState = state;
+          let cmd = null;
+          if (state === "00") cmd = "C01";
+          else if (state === "80") cmd = "C00";
+          else if (state === "10") cmd = "C01";
+          if (cmd) this.sendCommand(cmd);
+        }
+      }
+    };
+
+    sock.on("data", (d) => process(d.toString()));
+    sock.on("error", () => {});
   }
 
   sendCommand(cmd) {
