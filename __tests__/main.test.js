@@ -70,6 +70,7 @@ describe("ChristieDHD800Instance", () => {
     const defs = setDefsSpy.mock.calls[0][0];
     expect(defs).toHaveProperty("power_on");
     expect(defs).toHaveProperty("power_off");
+    expect(defs).toHaveProperty("power_toggle");
     expect(defs).toHaveProperty("input_1");
     expect(defs).toHaveProperty("menu_off");
     // ensure callbacks are present
@@ -210,6 +211,36 @@ describe("ChristieDHD800Instance additional tests", () => {
     const defs = spy.mock.calls[0][0];
     expect(defs).toHaveProperty("power_state");
     expect(defs).toHaveProperty("input_source");
+  });
+
+  test("togglePower verifies state before switching on", () => {
+    const instance = new InstanceClass({});
+    instance.config = { host: "1.2.3.4", port: 10000, password: "" };
+    const cmdSpy = jest
+      .spyOn(instance, "sendCommand")
+      .mockImplementation(() => {});
+    instance.togglePower();
+    const handler = mockOn.mock.calls.find((c) => c[0] === "data")[1];
+    handler("PASSWORD:");
+    handler("HELLO");
+    expect(mockSend).toHaveBeenCalledWith("CR1\r");
+    handler("80");
+    expect(cmdSpy).toHaveBeenCalledWith("C00");
+  });
+
+  test("togglePower verifies state before switching off", () => {
+    const instance = new InstanceClass({});
+    instance.config = { host: "1.2.3.4", port: 10000, password: "" };
+    const cmdSpy = jest
+      .spyOn(instance, "sendCommand")
+      .mockImplementation(() => {});
+    instance.togglePower();
+    const handler = mockOn.mock.calls.find((c) => c[0] === "data")[1];
+    handler("PASSWORD:");
+    handler("HELLO");
+    expect(mockSend).toHaveBeenCalledWith("CR1\r");
+    handler("00");
+    expect(cmdSpy).toHaveBeenCalledWith("C01");
   });
 
   test("queryState sends status commands", () => {

@@ -19,7 +19,7 @@ around one second to ensure the projector processes the message.
 
 The following actions are available:
 
-- Power On / Off
+- Power On / Off / Toggle
 - Select Input 1–4
 - Menu On / Off
 
